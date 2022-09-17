@@ -29,22 +29,26 @@ client.on("messageCreate", async message => {
 
   if (message.content.startsWith(config.prefix)) {
     var connd = message.content.split(" "); //これはテキストにスペースがあれば、そのスペースを挟んでる文字列を取り出すコード(説明がごみ)
-    if (connd[1] == "add") {
-      var url = connd[2]; //URL設定
-      console.log(connd)
-      if (!ytdl.validateURL(url)) return message.reply("`" + url + "`が理解できませんでした..."); //ytdlがURL解析してくれるらしい
-      list.push(url);
-      console.log(list)
-    } else if (connd[1] == "play") {
-      console.log(list)
-      if (list[1]) {
-        ytplay(message);
-      } else {
-        message.reply("プレイリストが空です...`" + config.prefix + " add [URL]`でプレイリストに追加してください！");
-      }
-    } else if (connd[1] == "stop") {
-      stream.destroy(); //ストリームの切断？わからん
-      connection.destroy(); //VCの切断
+    switch (connd[1]) { //ifのようなもので、connd[1]とcaseのものと比較する
+      case "add": //addとconnd[1]が同じなら...
+        var url = connd[2]; //URL設定
+        console.log(connd);
+        if (!ytdl.validateURL(url)) return message.reply("`" + url + "`が理解できませんでした..."); //ytdlがURL解析してくれるらしい
+        list.push(url);
+        console.log(list);
+        break;
+      case "play": //playが(ry
+        console.log(list);
+        if (list[1]) {
+          ytplay(message);
+        } else {
+          message.reply("プレイリストが空です...`" + config.prefix + " add [URL]`でプレイリストに追加してください！");
+        };
+        break;
+      case "stop":
+        stream.destroy(); //ストリームの切断？わからん
+        connection.destroy(); //VCの切断
+        break;
     };
   };
 });
