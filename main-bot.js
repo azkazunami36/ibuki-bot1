@@ -1,28 +1,51 @@
-const Discord = require('discord.js');
+const { Client, GatewayIntentBits, Partials, EmbedBuilder, BaseChannel, ApplicationCommandOptionType } = require('discord.js');
 var config = require("./config.json");
-config.prefix; //例 これだとprefixが読みだされる
-config.token;
-const bot = new Discord.Client();
-const HandleOrder = require('./services/handle_order.js');
+const bot = new Client({
+  partials: [Partials.Channel],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.DirectMessageTyping,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+const HandleOrder = require('./services/handle_order.js'); //なにこれ取得しようにもない
 
-bot.once('ready', () => {
-  console.log('Ready!');
+//怪文
+var express = require('express');
+var app = express();
+var bodyParser = require('body-parser');
+require('./discord/index');
+
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({extended: true}));
+
+app.get('/', function (req, res) {
+  res.send('Welcome to my word! I am Utadorei :)');
 });
 
-// メッセンジを聞く前にログインしましょう
-bot.login(token);
+app.listen(process.env.PORT || 3000, function() {
+  console.log('Utadorei app listening on port 3000!');
+});
+//怪文終了
 
-// メッセンジが届いたら、このメソードを呼びます。
-bot.on('message', message => {
-  if (message.author.bot) { return; }
+bot.on("ready", () => {
+  console.log("準備おっけい！");
+});
 
-  // メッセンジの最初の言葉が!ならボットが実行する
-  if (message.content.startsWith(prefix)) {
+bot.on("messageCreate", message => {
+  if (message.author.bot) return; //チャット送信者がbotならリターン(終了)
+  if (message.content.startsWith(config.prefix)) {
     HandleOrder.call(message);
-  }
+  };
 });
 
-const { prefix } = require('../config.json');
+bot.login(config.token); //ログイン
+
 const ytdl = require('ytdl-core');
 
 module.exports = {
@@ -83,9 +106,9 @@ function play(connection, message) {
   );
   console.log('Playing ' + unplay_queue.url);
   unplay_queue.status = 1;
-  server.dispatcher.on('end', function() {
+  server.dispatcher.on('end', function () {
     let unplay_queue = getFirstUnPlayedQueue(server.queue);
-    if(unplay_queue) { play(connection, message); }
+    if (unplay_queue) { play(connection, message); }
     else { connection.disconnect(); }
   });
 }
@@ -113,7 +136,7 @@ function isValidCommand(message, url) {
 function handlePlay(message, url) {
   if (!isValidCommand(message, url)) { return; }
 
-  if (!servers[message.guild.id]) { servers[message.guild.id] = {queue: []}; }
+  if (!servers[message.guild.id]) { servers[message.guild.id] = { queue: [] }; }
   servers[message.guild.id].queue.push({
     url: url,
     status: 0
@@ -143,7 +166,7 @@ function handleStop(message) {
 
 function handlePlayNow(message, url) {
   let server = servers[message.guild.id];
-  if(!server) {
+  if (!server) {
     handlePlay(message, url);
     return;
   }
@@ -157,37 +180,37 @@ function handlePlayNow(message, url) {
 
 function handleNp(message) {
   let server = servers[message.guild.id];
-  if(!server || !server.queue) {
+  if (!server || !server.queue) {
     message.reply("There is not things.");
     return;
   }
   let current_queue = getCurrentQueue(server.queue);
-  if(!server) { return; }
+  if (!server) { return; }
   ytdl.getBasicInfo(current_queue.url).then(info => {
     message.reply(getInfoMsg(info, current_queue.url));
   });
 }
 
 function getCurrentQueue(queues) {
-  return queues.filter(function(queue) {
+  return queues.filter(function (queue) {
     return queue.status === 1;
   }).slice(-1)[0];
 }
 
 function getFirstUnPlayedQueue(queues) {
-  return queues.filter(function(queue) {
+  return queues.filter(function (queue) {
     return queue.status === 0;
   })[0];
 }
 
 async function handleList(message) {
   let server = servers[message.guild.id];
-  if(!server || !server.queue) {
+  if (!server || !server.queue) {
     message.reply("There is not things.");
     return;
   }
   let msg = "";
-  server.queue.forEach(function(queue) {
+  server.queue.forEach(function (queue) {
     ytdl.getBasicInfo(queue.url).then(info => {
       msg += getInfoMsg(info, queue.url) + '\n --------------------------';
       console.log(msg);
