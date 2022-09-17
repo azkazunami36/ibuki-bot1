@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, BaseChannel, ApplicationCommandOptionType, ChannelType } = require('discord.js'); //Discord.js本体
-const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, getVoiceConnections, VoiceConnection, StreamType } = require('@discordjs/voice'); //Discord.jsVoice
+const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, getVoiceConnections, VoiceConnection, StreamType, AudioPlayerStatus } = require('@discordjs/voice'); //Discord.jsVoice
 const ytdl = require('ytdl-core'); //YouTube取得用
 var config = { prefix: "!" }; //json
 var token = require("./token.json"); //トークン
@@ -29,8 +29,6 @@ client.on("messageCreate", async message => {
   if (message.content.startsWith(config.prefix)) {
     var connd = message.content.split(" "); //これはテキストにスペースがあれば、そのスペースを挟んでる文字列を取り出すコード(説明がごみ)
     var channel = message.member.voice.channel;
-    console.log(channel);
-    console.log(connd);
     if (connd[1] == "play") {
       var url = connd[2]; //URL設定
       if (!ytdl.validateURL(url)) return message.reply("`" + url + "`が理解できませんでした..."); //ytdlがURL解析してくれるらしい
@@ -51,8 +49,11 @@ client.on("messageCreate", async message => {
       const resource = createAudioResource(stream, { inputType: StreamType.WebmOpus }); //多分streamのデータを形式とともに入れる？
       // 再生
       player.play(resource); //再生
+      await entersState(player, AudioPlayerStatus.Playing, 10 * 1000);
+      await entersState(player, AudioPlayerStatus.Idle, 24 * 60 * 60 * 1000);
+      connection.destroy();
     } else if (connd[1] == "stop") {
-      stream.destroy(); //わからんけど自分が付け足した切断
+      stream.destroy(); //ストリームの切断？わからん
       connection.destroy(); //VCの切断
     };
   };
