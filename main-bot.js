@@ -1,6 +1,8 @@
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, BaseChannel, ApplicationCommandOptionType } = require('discord.js');
+const { entersState, AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel,  StreamType } = require('@discordjs/voice');
+const ytdl = require('ytdl-core');
 var config = require("./config.json");
-const bot = new Client({
+const client = new Client({
   partials: [Partials.Channel],
   intents: [
     GatewayIntentBits.Guilds,
@@ -13,40 +15,20 @@ const bot = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
-const HandleOrder = require('./services/handle_order.js'); //なにこれ取得しようにもない
-
-//怪文
-var express = require('express');
-var app = express();
-var bodyParser = require('body-parser');
-require('./discord/index');
-
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: true}));
-
-app.get('/', function (req, res) {
-  res.send('Welcome to my word! I am Utadorei :)');
-});
-
-app.listen(process.env.PORT || 3000, function() {
-  console.log('Utadorei app listening on port 3000!');
-});
-//怪文終了
-
-bot.on("ready", () => {
+client.on("ready", () => {
   console.log("準備おっけい！");
 });
 
-bot.on("messageCreate", message => {
+client.on("messageCreate", message => {
   if (message.author.bot) return; //チャット送信者がbotならリターン(終了)
   if (message.content.startsWith(config.prefix)) {
     HandleOrder.call(message);
   };
 });
 
-bot.login(config.token); //ログイン
+client.login(config.token); //ログイン
 
-const ytdl = require('ytdl-core');
+//以降は飾り
 
 module.exports = {
   call: call,
