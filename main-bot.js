@@ -1,7 +1,8 @@
-const { Client, GatewayIntentBits, Partials, EmbedBuilder, BaseChannel, ApplicationCommandOptionType } = require('discord.js');
-const { entersState, AudioPlayerStatus, createAudioPlayer, createAudioResource, joinVoiceChannel,  StreamType } = require('@discordjs/voice');
-const ytdl = require('ytdl-core');
-var config = require("./config.json");
+const { Client, GatewayIntentBits, Partials, EmbedBuilder, BaseChannel, ApplicationCommandOptionType, ChannelType } = require('discord.js'); //Discord.js本体
+const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, getVoiceConnections, VoiceConnection, StreamType } = require('@discordjs/voice'); //Discord.jsVoice
+const ytdl = require('ytdl-core'); //YouTube取得用
+var config = { prefix: "!plays" }; //json
+var token = require("./token.json"); //トークン
 const client = new Client({
   partials: [Partials.Channel],
   intents: [
@@ -14,199 +15,43 @@ const client = new Client({
     GatewayIntentBits.DirectMessages,
     GatewayIntentBits.MessageContent
   ]
-});
+}); //クライアント
 client.on("ready", () => {
-  console.log("準備おっけい！");
+  console.log("準備おっけい！"); //準備OK通知
 });
 
-client.on("messageCreate", message => {
+var connection; //接続や切断を管理
+
+client.on("messageCreate", async message => {
   if (message.author.bot) return; //チャット送信者がbotならリターン(終了)
+  
   if (message.content.startsWith(config.prefix)) {
-    HandleOrder.call(message);
+    var connd = message.content.split(" "); //これはテキストにスペースがあれば、そのスペースを挟んでる文字列を取り出すコード(説明がごみ)
+    console.log(connd);
+    if (connd[1] == "play") {
+      var url = connd[2]; //URL設定
+      connection = joinVoiceChannel({ //うまく説明はできないけど、ボイスチャンネル参加
+        adapterCreator: message.guild.voiceAdapterCreator, //わからん
+        channelId: "926965021097988152", //VoiceChannelを設定
+        guildId: message.guildId, //サーバーIDを設定
+        selfDeaf: true //多分スピーカーミュート
+      });
+      console.log(getVoiceConnections());
+      var player = createAudioPlayer(); //多分音声を再生するためのもの
+      connection.subscribe(player); //connectionにplayerを登録？
+      var stream = ytdl(ytdl.getURLVideoID(url), {
+        filter: format => format.audioCodec === 'opus' && format.container === 'webm', //webm opus //わからん
+        quality: 'highest', //わからん
+        highWaterMark: 32 * 1024 * 1024, //わからん
+      });
+      const resource = createAudioResource(stream, { inputType: StreamType.WebmOpus }); //多分streamのデータを形式とともに入れる？
+      // 再生
+      player.play(resource); //再生
+    } else if (connd[1] == "stop") {
+      connection.destroy();
+    };
   };
 });
 
-client.login(config.token); //ログイン
 
-//以降は飾り
-
-module.exports = {
-  call: call,
-  play: play,
-  isValidCommand: isValidCommand,
-  handlePlay: handlePlay,
-  handleSkip: handleSkip,
-  handleStop: handleStop,
-  handlePlayNow: handlePlayNow
-}
-
-let servers = {};
-
-function call(message) {
-  const args = message.content.slice(prefix.length).split(' ');
-  const command = args.shift().toLowerCase();
-
-  switch (command) {
-    case 'play':
-      handlePlay(message, args[0]);
-      break;
-    case 'skip':
-      handleSkip(message);
-      break;
-    case 'stop':
-      handleStop(message);
-      break;
-    case 'playnow':
-      handlePlayNow(message, args[0]);
-      break;
-    case 'join':
-      handleJoin(message);
-      break;
-    case 'np':
-      handleNp(message);
-      break;
-    case 'list':
-      handleList(message);
-      break;
-  }
-}
-
-function handleJoin(message) {
-  if (!message.guild.voiceConnection) {
-    message.member.voiceChannel.join()
-      .then(connection => {
-      })
-      .catch(console.log);
-  }
-}
-
-function play(connection, message) {
-  let server = servers[message.guild.id];
-  let unplay_queue = getFirstUnPlayedQueue(server.queue);
-  server.dispatcher = connection.playStream(
-    ytdl(unplay_queue.url)
-  );
-  console.log('Playing ' + unplay_queue.url);
-  unplay_queue.status = 1;
-  server.dispatcher.on('end', function () {
-    let unplay_queue = getFirstUnPlayedQueue(server.queue);
-    if (unplay_queue) { play(connection, message); }
-    else { connection.disconnect(); }
-  });
-}
-
-function isValidCommand(message, url) {
-  if (!url) {
-    message.reply('Please type a link.');
-    return false;
-  }
-
-  let reg = /^(http(s)?:\/\/)?((w){3}.)?youtu(be|.be)?(\.com)?\/.+/gm;
-  if (!url.match(reg)) {
-    message.reply('Is that a valid youtube link?');
-    return false;
-  }
-
-  if (!message.member.voiceChannel) {
-    message.reply('Please go to the voice channel first.');
-    return false;
-  }
-
-  return true;
-}
-
-function handlePlay(message, url) {
-  if (!isValidCommand(message, url)) { return; }
-
-  if (!servers[message.guild.id]) { servers[message.guild.id] = { queue: [] }; }
-  servers[message.guild.id].queue.push({
-    url: url,
-    status: 0
-  });
-
-  console.log(servers[message.guild.id].queue);
-
-  if (!message.guild.voiceConnection) {
-    message.member.voiceChannel.join()
-      .then(connection => {
-        play(connection, message);
-      })
-      .catch(console.log);
-  }
-}
-
-function handleSkip(message) {
-  if (!servers[message.guild.id]) { return; }
-
-  let server = servers[message.guild.id];
-  if (server.dispatcher) { server.dispatcher.end(); }
-}
-
-function handleStop(message) {
-  if (message.guild.voiceConnection) { message.guild.voiceConnection.disconnect(); }
-}
-
-function handlePlayNow(message, url) {
-  let server = servers[message.guild.id];
-  if (!server) {
-    handlePlay(message, url);
-    return;
-  }
-
-  server.queue.splice(1, 0, {
-    url: url,
-    status: 0
-  });
-  server.dispatcher.end();
-}
-
-function handleNp(message) {
-  let server = servers[message.guild.id];
-  if (!server || !server.queue) {
-    message.reply("There is not things.");
-    return;
-  }
-  let current_queue = getCurrentQueue(server.queue);
-  if (!server) { return; }
-  ytdl.getBasicInfo(current_queue.url).then(info => {
-    message.reply(getInfoMsg(info, current_queue.url));
-  });
-}
-
-function getCurrentQueue(queues) {
-  return queues.filter(function (queue) {
-    return queue.status === 1;
-  }).slice(-1)[0];
-}
-
-function getFirstUnPlayedQueue(queues) {
-  return queues.filter(function (queue) {
-    return queue.status === 0;
-  })[0];
-}
-
-async function handleList(message) {
-  let server = servers[message.guild.id];
-  if (!server || !server.queue) {
-    message.reply("There is not things.");
-    return;
-  }
-  let msg = "";
-  server.queue.forEach(function (queue) {
-    ytdl.getBasicInfo(queue.url).then(info => {
-      msg += getInfoMsg(info, queue.url) + '\n --------------------------';
-      console.log(msg);
-    });
-  });
-
-  await delay();
-  message.reply(msg);
-}
-
-function getInfoMsg(info, url) {
-  return `\n Title: ${info.player_response.videoDetails.title} \n Author: ${info.author.name} \n Link: ${url}`;
-}
-
-function delay() {
-  return new Promise(resolve => setTimeout(resolve, 1000));
-}
+client.login(token); //ログイン
