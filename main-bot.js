@@ -1,7 +1,6 @@
-const { Client, GatewayIntentBits, Partials, EmbedBuilder, SlashCommandBuilder, BaseChannel, ApplicationCommandOptionType, ChannelType } = require('discord.js'); //Discord.js本体
-const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, getVoiceConnections, VoiceConnection, StreamType, AudioPlayerStatus } = require('@discordjs/voice'); //Discord.jsVoice
+const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js'); //Discord.js本体
+const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require('@discordjs/voice'); //Discord.jsVoice
 const ytdl = require('ytdl-core'); //YouTube取得用
-const { getInfo } = require('ytdl-core');
 require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const config = { prefix: "!" }; //json
 const token = process.env.token; //トークン
@@ -100,73 +99,6 @@ client.on("messageCreate", async message => {
     };
   };
 });
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand()) return;
-  switch (interaction.commandName) {
-    case "add":
-      const url = interaction.options.getString("url");
-      if (!ytdl.validateURL(url)) return interaction.reply("`" + url + "`が理解できませんでした..."); //ytdlがURL解析してくれるらしい
-      let uname = interaction.user.username;
-      let titled, times, timem = 0, thumbnails;
-      await getInfo(url).then(info => {
-        titled = info.player_response.videoDetails.title;
-        times = info.player_response.videoDetails.lengthSeconds;
-        let th = info.player_response.videoDetails.thumbnail.thumbnails[0].url;
-        thumbnails = th.split("?")[0];
-        for (timem; times > 59; timem++) times -= 60;
-      });
-      list.push({ url: url, username: uname, title: titled, time: timem + "分" + times + "秒", thumbnails: thumbnails });
-      interaction.reply(await voicestatus(0, 1, 0, 2, "追加ができました！"));
-      break;
-    case "play":
-      if (playing) return interaction.reply("既に再生をしています。");
-      if (!interaction.member.voice.channel) return message.reply(message.author.username + "さんがボイスチャットにいません...\n入ってからまたやってみてくださいね！");
-      if (!list[0]) return interaction.reply("プレイリストが空です...`add [URL]`でプレイリストに追加してください！");
-      connection = joinVoiceChannel({ //うまく説明はできないけど、ボイスチャンネル参加
-        adapterCreator: interaction.guild.voiceAdapterCreator, //わからん
-        channelId: interaction.member.voice.channel.id, //VoiceChannelを設定
-        guildId: interaction.guildId, //サーバーIDを設定
-        selfDeaf: true //多分スピーカーミュート
-      });
-      ytplay();
-      interaction.reply(await voicestatus(1, 1, 1, 1, "曲の再生を始めます！"));
-      break;
-    case "stop":
-      if (!playing) return interaction.reply("現在、音楽を再生していません。後で実行してください。");
-      stream.destroy(); //ストリームの切断？わからん
-      connection.destroy(); //VCの切断
-      playmeta.name = "";
-      playmeta.url = "";
-      playmeta.title = "";
-      interaction.reply(await voicestatus(0, 1, 0, 0, "曲を止めました...(´・ω・｀)"));
-      playing = false;
-      break;
-    case "skip":
-      if (!playing) return interaction.reply("現在、音楽を再生していません。後で実行してください。");
-      stream.destroy(); //ストリームの切断？わからん
-      if (list[0]) {
-        ytplay();
-        interaction.reply((await voicestatus(1, 1, 1, 1, "次の曲を再生しますねぇ")));
-      } else {
-        interaction.reply("うまく動作ができていません。エラーの可能性がありますので、この状態になるまでの動きを\n`あんこかずなみ36#5008`にお伝えください。ログには記録済みです。");
-      };
-      break;
-    case "volume":
-      let volume = (interaction.options.getNumber("vol") / 100);
-      if (volume < 0) {
-        volume = 0;
-      } else if (volume > 100) {
-        volume = 100;
-      };
-      if (playing) resource.volume.volume = volume;
-      volumes = volume;
-      interaction.reply(await voicestatus(0, 0, 1, 0, "音量を変更しました！"));
-      break;
-    case "status":
-      interaction.reply((await voicestatus(1, 1, 1, 1, "現在のすべての状態を表示しまーすっ")));
-  };
-});
-
 const ytplay = async () => {
   if (list[0]) {
     playmeta.url = list[0].url;
