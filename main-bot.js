@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js'); //Discord.js本体
 const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require('@discordjs/voice'); //Discord.jsVoice
-const ytdl = require('ytdl-core'); //YouTube取得用
+const ytdl = require('ytdl-core'); //YouTube Downloadのコア
 require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const config = { prefix: "!" }; //json
 const token = process.env.token; //トークン
@@ -17,10 +17,7 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 }); //クライアント
-client.on("ready", () => {
-  console.log("準備おっけい！"); //準備OK通知
-});
-
+client.on("ready", () => { console.log("準備おっけい！"); }); //準備OK通知
 let dynamic = {
   connection: "", //接続や切断を管理
   stream: "", //ストリーム
@@ -34,55 +31,50 @@ client.on("messageCreate", async message => {
   if (message.author.bot) return; //チャット送信者がbotならリターン(終了)
 
   if (message.content.startsWith(config.prefix)) {
+    const command = message.content.split(" ")[0].slice(config.prefix.length).trim().split(/ +/g)[0]; //prefixを排除する
     const subcontent = message.content.split(" ")[1]; //これはテキストにスペースがあれば、そのスペースを挟んでる文字列を取り出すコード(説明がごみ)
-    let command = message.content.split(" ")[0].slice(config.prefix.length).trim().split(/ +/g)[0]; //prefixを排除する
     switch (command) {
-      case "add":
-        if (!ytdl.validateURL(subcontent)) return message.reply("`" + subcontent + "`が理解できませんでした..."); //ytdlがURL解析してくれるらしい
-        const videoid = ytdl.getURLVideoID(subcontent);
-        let uname = message.author.username;
-        let titled, times, timem = 0, thumbnails;
-        await ytdl.getInfo(subcontent).then(info => {
-          titled = info.player_response.videoDetails.title;
-          times = info.player_response.videoDetails.lengthSeconds;
-          let th = info.player_response.videoDetails.thumbnail.thumbnails[0].url;
-          thumbnails = th.split("?")[0];
-          for (timem; times > 59; timem++) times -= 60;
+      case "add": //addなら...
+        if (!ytdl.validateURL(subcontent)) return message.reply("`" + subcontent + "`が理解できませんでした..."); //YouTubeリンクじゃないのなら通知
+        const videoid = ytdl.getURLVideoID(subcontent); //YouTubeのVideoIDを取り出す
+        let titled, times, timem = 0, thumbnails; //変数
+        await ytdl.getInfo(subcontent).then(info => { //動画の情報を取得する
+          titled = info.player_response.videoDetails.title; //タイトル
+          times = info.player_response.videoDetails.lengthSeconds; //動画秒数
+          thumbnails = info.player_response.videoDetails.thumbnail.thumbnails[0].url.split("?")[0]; //サムネイルリンク(「?」より先の文字列を削除)
+          for (timem; times > 59; timem++) times -= 60; //動画秒数から分数を取り出し、秒数を分数だけ60減らす
         });
-        dynamic.vilist.push({ url: videoid, username: uname, title: titled, time: timem + "分" + times + "秒", thumbnails: thumbnails });
-        message.reply(await voicestatus(0, 1, 0, 2, "追加ができました！"));
-        break;
+        dynamic.vilist.push({ url: videoid, username: message.author.username, title: titled, time: timem + "分" + times + "秒", thumbnails: thumbnails }); //再生リストに追加
+        message.reply(await voicestatus(0, 1, 0, 2, "追加ができました！")); //通知
+        break; //終了
       case "play":
-        if (dynamic.playing) return message.reply("既に再生をしています。");
-        if (!message.member.voice.channel) return message.reply(message.author.username + "さんがボイスチャットにいません...\n入ってからまたやってみてくださいね！");
-        if (!dynamic.vilist[0]) return message.reply("プレイリストが空です...`add [URL]`でプレイリストに追加してください！");
-        dynamic.connection = joinVoiceChannel({ //うまく説明はできないけど、ボイスチャンネル参加
+        if (dynamic.playing) return message.reply("既に再生をしています。"); //playingがtrueなら通知
+        if (!message.member.voice.channel) return message.reply(message.author.username + "さんがボイスチャットにいません...\n入ってからまたやってみてくださいね！"); //VCに入っていなかったら通知
+        if (!dynamic.vilist[0]) return message.reply("プレイリストが空です...`add [URL]`でプレイリストに追加してください！"); //再生リストが空なら通知
+        dynamic.connection = joinVoiceChannel({ //ボイスチャンネル参加
           adapterCreator: message.guild.voiceAdapterCreator, //わからん
           channelId: message.member.voice.channel.id, //VoiceChannelを設定
           guildId: message.guildId, //サーバーIDを設定
           selfDeaf: true //多分スピーカーミュート
         });
-        ytplay();
-        message.reply(await voicestatus(1, 1, 1, 1, "曲の再生を始めます！"));
+        ytplay(); //関数
+        message.reply(await voicestatus(1, 1, 1, 1, "曲の再生を始めます！")); //通知
         break;
       case "stop":
-        if (!dynamic.playing) return message.reply("現在、音楽を再生していません。後で実行してください。");
+        if (!dynamic.playing) return message.reply("現在、音楽を再生していません。後で実行してください。"); //playingがfalseなら通知
         dynamic.stream.destroy(); //ストリームの切断
         dynamic.connection.destroy(); //VCの切断
-        dynamic.playmeta.name = "";
-        dynamic.playmeta.url = "";
-        dynamic.playmeta.title = "";
-        message.reply(await voicestatus(0, 1, 0, 0, "曲を止めました...(´・ω・｀)"));
-        dynamic.playing = false;
+        message.reply(await voicestatus(0, 1, 0, 0, "曲を止めました...(´・ω・｀)")); //通知
+        dynamic.playing = false; //再生状況
         break;
       case "skip":
-        if (!dynamic.playing) return message.reply("現在、音楽を再生していません。後で実行してください。");
+        if (!dynamic.playing) return message.reply("現在、音楽を再生していません。後で実行してください。"); //通知
         dynamic.stream.destroy(); //ストリームの切断
         if (dynamic.vilist[0]) {
-          ytplay();
-          message.reply((await voicestatus(1, 1, 1, 1, "次の曲を再生しますねぇ")));
+          ytplay(); //関数
+          message.reply((await voicestatus(1, 1, 1, 1, "次の曲を再生しますねぇ"))); //通知
         } else {
-          message.reply("うまく動作ができていません。エラーの可能性がありますので、この状態になるまでの動きを\n`あんこかずなみ36#5008`にお伝えください。ログには記録済みです。");
+          message.reply("うまく動作ができていません。エラーの可能性がありますので、この状態になるまでの動きを\n`あんこかずなみ36#5008`にお伝えください。ログには記録済みです。"); //通知
         };
         break;
       case "volume":
@@ -94,10 +86,10 @@ client.on("messageCreate", async message => {
         };
         if (dynamic.playing) dynamic.resource.volume.volume = volumes / 100;
         dynamic.volumes = volumes;
-        message.reply(await voicestatus(0, 0, 1, 0, "音量を変更しました！"));
+        message.reply(await voicestatus(0, 0, 1, 0, "音量を変更しました！")); //通知
         break;
       case "status":
-        message.reply((await voicestatus(1, 1, 1, 1, "現在のすべての状態を表示しまーすっ")));
+        message.reply((await voicestatus(1, 1, 1, 1, "現在のすべての状態を表示しまーすっ"))); //通知
     };
   };
 });
