@@ -5,7 +5,7 @@ require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const config = { prefix: "!" }; //json
 const token = process.env.token; //トークン
 const client = new Client({
-  partials: [Partials.Channel],
+  partials: [Partials.Channel],     //こんなところに書いて申し訳ない　Discordのアカウントは無効になりましたって出てくる　LINE works　来れる？　reirai2387rinurinu@gmail.comに返事よろしく　2022年10月4日　から林間学校
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildVoiceStates,
