@@ -3,6 +3,7 @@ const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, S
 const ytdl = require('ytdl-core'); //YouTube Downloadのコア
 const fs = require("fs"); //ファイル書き込みや読み込み
 require("dotenv").config(); //envデータ取得用(Glitchでは不要)
+const { decycle } = require("json-cyclic"); //json管理に必須
 require("./response.js"); //常時実行するために呼び出す専用のファイルを読み込む
 const config = { prefix: "voice!" }; //json
 const token = process.env.token; //トークン
@@ -15,12 +16,11 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 }); //クライアント
-client.on("ready", () => { console.log("準備おっけい！"); }); //準備OK通知
 
 /**
  * voiceコマンドのデータ格納庫
  */
-const voice = {
+let voice = {
   /**
    * サーバー毎やチャンネル毎の再生リストなどを保管する
    */
@@ -107,6 +107,19 @@ const voice = {
   }
 };
 
+client.on("ready", async () => {
+  console.log("準備おっけい！");
+  fs.readFile("data.json", (err, data) => {
+    voice = JSON.parse(data);
+    client.user.setPresence({
+      activities: [{
+        name: "There are " + Object.keys(voice.youtubecache).length + " songs."
+      }],
+      status: "online"
+    });
+  });
+}); //準備OK通知
+
 client.on("messageCreate", async message => { //メッセージを受信したら
   if (message.author.bot) return; //チャット送信者がbotならリターン(終了)
 
@@ -125,6 +138,23 @@ client.on("messageCreate", async message => { //メッセージを受信した�
       content: "ボイスチャットに参加していないようです...\n" +
         "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
     });
+    let json = {
+      server: {},
+      youtubecache: voice.youtubecache,
+      default: voice.default
+    };
+    for (let i = 0; Object.keys(voice.server).length != i; i++) {
+      let guildkey = Object.keys(voice.server)[i];
+      let channelplay = voice.server[guildkey];
+      json.server[guildkey] = {
+        connection: {},
+        resource: {},
+        ytstream: {},
+        playing: null,
+        channellist: channelplay.channellist
+      };
+    };
+    fs.writeFile("data.json", JSON.stringify(decycle(json), null, "\t"), e => { if (e) throw e; });
     if (!server.channellist[channel]) server.channellist[channel] = voice.default.channel; //チャンネル用オブジェクト初期化
     switch (command) {
       case "add": {
