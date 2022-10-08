@@ -132,6 +132,12 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         if (!ytdl.validateURL(subcontent)) return message.reply({ content: "送られたものがYouTube用のURLではないみたいです...\n" + "内容: " + subcontent }); //URLが認識できない場合
         const videoid = ytdl.getURLVideoID(subcontent); //URLからVideoIDを取得
         if (!voice.youtubecache[videoid]) await ytdl.getInfo(subcontent).then(info => voice.youtubecache[videoid] = info.player_response.videoDetails); //youtubeのデータがキャッシュされてなかったら取得
+        client.user.setPresence({
+          activities: [{
+            name: "There are " + voice.youtubecache.length + " songs."
+          }],
+          status: "online"
+        });
         server.channellist[channel].playlist.push({ //再生リストに追加
           url: videoid, //VideoIDを保管
           user: message.author.id //追加者を記録
