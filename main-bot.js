@@ -229,7 +229,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         if (number > server.channellist[channel].playlist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         if (number == 0) {
           server.channellist[channel].playlist.splice(0);
-          message.reply(await voicestatus(0, 1, 0, 0, 0, "全ての動画を削除しましたっ", message.guildId, channel));
+          message.reply({ content: "削除しました～" });
         } else {
           let data = JSON.parse(JSON.stringify(server.channellist[channel].playlist[number - 1]));
           server.channellist[channel].playlist.splice((number - 1), 1);
