@@ -134,7 +134,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         if (!voice.youtubecache[videoid]) await ytdl.getInfo(subcontent).then(info => voice.youtubecache[videoid] = info.player_response.videoDetails); //youtubeのデータがキャッシュされてなかったら取得
         client.user.setPresence({
           activities: [{
-            name: "There are " + voice.youtubecache.length + " songs."
+            name: "There are " + Object.keys(voice.youtubecache).length + " songs."
           }],
           status: "online"
         });
