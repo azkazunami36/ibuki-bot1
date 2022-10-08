@@ -109,14 +109,21 @@ let voice = {
 
 client.on("ready", async () => {
   console.log("準備おっけい！");
-  fs.readFile("data.json", (err, data) => {
-    voice = JSON.parse(data);
-    client.user.setPresence({
-      activities: [{
-        name: "There are " + Object.keys(voice.youtubecache).length + " songs."
-      }],
-      status: "online"
-    });
+  if (!fs.existsSync("data.json")) fs.writeFileSync("data.json", JSON.stringify(voice));
+  fs.readFileSync("data.json", (err, data) => {
+    if (err) {
+      console.log("jsonの内容が破損、または取得が出来ないためファイルを再作成します。");
+      if (fs.existsSync("data.json")) fs.unlinkSync("data.json");
+      fs.writeFileSync("data.json", JSON.stringify(voice));
+    } else {
+      voice = JSON.parse(data);
+      client.user.setPresence({
+        activities: [{
+          name: "There are " + Object.keys(voice.youtubecache).length + " songs."
+        }],
+        status: "online"
+      });
+    };
   });
 }); //準備OK通知
 
@@ -128,7 +135,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
     const command = incommands[0].slice(config.prefix.length).trim().split(/ +/g)[0]; //Prefixを取り除く
     const subcontent = incommands[1]; //2番目の文字列を受け取る
 
-    if (!voice.server[message.guildId]) voice.server[message.guildId] = voice.default.guild; //サーバー用オブジェクト初期化
+    if (!voice.server[message.guildId]) voice.server[message.guildId] = JSON.parse(JSON.stringify(voice.default.guild)); //サーバー用オブジェクト初期化
     const server = voice.server[message.guildId]; //コード見やすくするための
     const channel = String(message.member.voice.channelId); //ボイスチャンネルの場所を取得
     console.log(command);
@@ -138,24 +145,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
       content: "ボイスチャットに参加していないようです...\n" +
         "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
     });
-    let json = {
-      server: {},
-      youtubecache: voice.youtubecache,
-      default: voice.default
-    };
-    for (let i = 0; Object.keys(voice.server).length != i; i++) {
-      let guildkey = Object.keys(voice.server)[i];
-      let channelplay = voice.server[guildkey];
-      json.server[guildkey] = {
-        connection: {},
-        resource: {},
-        ytstream: {},
-        playing: null,
-        channellist: channelplay.channellist
-      };
-    };
-    fs.writeFile("data.json", JSON.stringify(decycle(json), null, "\t"), e => { if (e) throw e; });
-    if (!server.channellist[channel]) server.channellist[channel] = voice.default.channel; //チャンネル用オブジェクト初期化
+    if (!server.channellist[channel]) server.channellist[channel] = JSON.parse(JSON.stringify(voice.default.channel)); //チャンネル用オブジェクト初期化
     switch (command) {
       case "add": {
         if (!subcontent) return message.reply({ content: "URLを指定しましょう...\n`" + config.prefix + "add [URL]`" }); //URLがない場合
@@ -232,6 +222,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
             .setThumbnail("https://i.ytimg.com/vi/" + server.channellist[channel].playing.url + "/hqdefault.jpg")
           ]
         });
+        break;
       }
       case "volume": {
         let volume = Number(subcontent);
@@ -241,9 +232,10 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         } else if (volume > 100) {
           volume = 100;
         };
-        if (server.playing == channel) server.resource.volume.volume = volume;
+        if (server.playing == channel) server.resource.volume.volume = volume / 100;
         server.channellist[channel].volume = volume;
         message.reply({ content: "音量を" + volume + "%にしました！" });
+        break;
       }
       case "repeat": {
         let repeat = "";
@@ -257,7 +249,8 @@ client.on("messageCreate", async message => { //メッセージを受信した�
           case 1: repeat = "リピート"; break;
           case 2: repeat = "１曲リピート"; break;
         };
-        message.reply({ content: "リピート状態を**" + repeat + "**に変更しました！" })
+        message.reply({ content: "リピート状態を**" + repeat + "**に変更しました！" });
+        break;
       }
       case "remove": {
         if (!server.channellist[channel].playlist[0]) return message.reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
@@ -280,8 +273,10 @@ client.on("messageCreate", async message => { //メッセージを受信した�
             ]
           });
         };
+        break;
       }
     };
+    savejson();
   };
 });
 
@@ -294,21 +289,27 @@ const ytplay = async (guildId, voiceid) => {
       if (server.channellist[voiceid].repeat != 2) server.channellist[voiceid].playlist.shift();
       if (server.channellist[voiceid].repeat == 1) server.channellist[voiceid].playlist.push(JSON.parse(JSON.stringify(server.channellist[voiceid].playing)));
     };
+    savejson();
 
     if (voice.default.audiocache) { //音声ファイルをキャッシュするかどうかを確認してから
       if (!fs.existsSync("ytaudio/" + server.channellist[voiceid].playing.url + ".mp3")) continue;
       server.ytstream = "ytaudio/" + server.channellist[voiceid].playing.url + ".mp3"; //ファイルパスを取得
     } else {
-      server.ytstream = ytdl(server.channellist[voiceid].playing.url, { filter: "audioonly", quality: "highest" }); //ytdlでリアルタイムダウンロード
+      server.ytstream = ytdl(server.channellist[voiceid].playing.url, {  //ytdlでリアルタイムダウンロード
+        filter: format => format.audioCodec === 'opus' && format.container === 'webm', //取り出すデータ
+      quality: "highest", //品質
+      highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
+    });
     };
     const player = createAudioPlayer(); //多分音声を再生するためのもの
     server.connection.subscribe(player); //connectionにplayerを登録？
     server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true }); //ytdlのストリームで取得できた音声ファイルを読み込む
-    server.resource.volume.setVolume(server.channellist[voiceid].volumes / 100); //音量調節
+    server.resource.volume.setVolume(server.channellist[voiceid].volume / 100); //音量調節
 
     player.play(server.resource); //再生
     await entersState(player, AudioPlayerStatus.Playing); //再生が始まるまでawaitで待機
     await entersState(player, AudioPlayerStatus.Idle); //再生リソースがなくなる(再生が終わる)まで待機
+    savejson();
     continue;
   };
 };
@@ -326,6 +327,26 @@ const timeString = async seconds => {
   if (minutes != 0) timeset += minutes + "分";
   if (seconds != 0) timeset += seconds + "秒";
   return timeset;
+};
+
+const savejson = () => {
+  let json = {
+    server: {},
+    youtubecache: voice.youtubecache,
+    default: voice.default
+  };
+  for (let i = 0; Object.keys(voice.server).length != i; i++) {
+    let guildkey = Object.keys(voice.server)[i];
+    let channelplay = voice.server[guildkey];
+    json.server[guildkey] = {
+      connection: {},
+      resource: {},
+      ytstream: {},
+      playing: null,
+      channellist: channelplay.channellist
+    };
+  };
+  fs.writeFile("data.json", JSON.stringify(decycle(json), null, "\t"), e => { if (e) throw e; });
 };
 
 client.login(token); //ログイン
