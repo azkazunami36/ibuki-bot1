@@ -110,19 +110,17 @@ let voice = {
 client.on("ready", async () => {
   console.log("準備おっけい！");
   if (!fs.existsSync("data.json")) fs.writeFileSync("data.json", JSON.stringify(voice));
-  fs.readFileSync("data.json", (err, data) => {
-    if (err) {
-      console.log("jsonの内容が破損、または取得が出来ないためファイルを再作成します。");
-      if (fs.existsSync("data.json")) fs.unlinkSync("data.json");
-      fs.writeFileSync("data.json", JSON.stringify(voice));
-    } else {
-      voice = JSON.parse(data);
+  fs.readFile("data.json", (err, data) => {
+    if (err) { jsonerror() } else {
+      voice = JSON.parse(data || null);
+      if (!voice) return jsonerror();
       client.user.setPresence({
         activities: [{
           name: "There are " + Object.keys(voice.youtubecache).length + " songs."
         }],
         status: "online"
       });
+      console.log("jsonデータを取り込みました～");
     };
   });
 }); //準備OK通知
@@ -297,9 +295,9 @@ const ytplay = async (guildId, voiceid) => {
     } else {
       server.ytstream = ytdl(server.channellist[voiceid].playing.url, {  //ytdlでリアルタイムダウンロード
         filter: format => format.audioCodec === 'opus' && format.container === 'webm', //取り出すデータ
-      quality: "highest", //品質
-      highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
-    });
+        quality: "highest", //品質
+        highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
+      });
     };
     const player = createAudioPlayer(); //多分音声を再生するためのもの
     server.connection.subscribe(player); //connectionにplayerを登録？
@@ -312,6 +310,12 @@ const ytplay = async (guildId, voiceid) => {
     savejson();
     continue;
   };
+};
+
+const jsonerror = () => {
+  console.log("jsonの内容が破損、または取得が出来ないためファイルを再作成します。");
+  if (fs.existsSync("data.json")) fs.unlinkSync("data.json");
+  fs.writeFileSync("data.json", JSON.stringify(voice));
 };
 
 /**
