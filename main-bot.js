@@ -5,7 +5,7 @@ const fs = require("fs"); //ファイル書き込みや読み込み
 require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const { decycle } = require("json-cyclic"); //json管理に必須
 const config = { prefix: "voice!" }; //json
-const token = process.env.token2; //トークン
+const token = process.env.token; //トークン
 const client = new Client({
   partials: [Partials.Channel],
   intents: [
@@ -275,6 +275,7 @@ const ytplay = async (guildId, voiceid) => {
           console.error(e);
           console.log("ytdlの処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
           console.log("ストリーム終了処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
+          server.playing = null;
           server.ytstream.destroy();
           break;
         };
@@ -294,6 +295,7 @@ const ytplay = async (guildId, voiceid) => {
         console.error(e);
         console.log("再生中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
         console.log("ボイスチャット切断処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
+        server.playing = null;
         server.ytstream.destroy();
         server.connection.destroy();
         break;
