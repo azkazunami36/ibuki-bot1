@@ -4,9 +4,8 @@ const ytdl = require('ytdl-core'); //YouTube Downloadのコア
 const fs = require("fs"); //ファイル書き込みや読み込み
 require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const { decycle } = require("json-cyclic"); //json管理に必須
-require("./response.js"); //常時実行するために呼び出す専用のファイルを読み込む
 const config = { prefix: "voice!" }; //json
-const token = process.env.token; //トークン
+const token = process.env.token2; //トークン
 const client = new Client({
   partials: [Partials.Channel],
   intents: [
@@ -33,6 +32,10 @@ let voice = {
    * 初期設定を格納する
    */
   default: {
+    /**
+     * チャットコマンド実行用プレフィックス
+     */
+    prefix: "voice!",
     /**
      * 音声ファイルを保存するかどうかの設定
      * レンタルサーバー(Glitch)や容量の少ないデバイス等では無効を推奨
@@ -109,29 +112,8 @@ let voice = {
 
 client.on("ready", async () => {
   try {
-    console.log("準備おっけい！"); try {
-      if (!fs.existsSync("data.json")) {
-        fs.writeFileSync("data.json", JSON.stringify(voice));
-        console.log("jsonファイルが無かったので、新しく作成しました！");
-      } else {
-        fs.readFile("data.json", (err, data) => {
-          if (err) { jsonerror() } else {
-            voice = JSON.parse(data || null);
-            if (!voice) return jsonerror();
-            client.user.setPresence({
-              activities: [{
-                name: "There are " + Object.keys(voice.youtubecache).length + " songs."
-              }],
-              status: "online"
-            });
-            console.log("jsonデータを取り込みました～");
-          };
-        });
-      };
-    } catch (e) {
-      console.error(e);
-      console.log("json取り込み中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-    };
+    console.log("準備おっけい！");
+    if (fs.existsSync("data.json")) { jsonload(); } else { jsonerror(); };
   } catch (e) {
     console.error(e);
     console.log("起動後処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
@@ -162,33 +144,23 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         switch (command) {
           case "add": {
             if (!subcontent) return message.reply({ content: "URLを指定しましょう...\n`" + config.prefix + "add [URL]`" }); //URLがない場合
-            if (!ytdl.validateURL(subcontent)) return message.reply({ content: "送られたものがYouTube用のURLではないみたいです...\n" + "内容: " + subcontent }); //URLが認識できない場合
-            const videoid = ytdl.getURLVideoID(subcontent); //URLからVideoIDを取得
+            if (!ytdl.validateURL(subcontent) && !ytdl.validateID(subcontent)) return message.reply({ content: "送られたものがYouTube用のURLではないみたいです...\n" + "内容: " + subcontent }); //URLが認識できない場合
+            let youtubetytdlturltid;
+            if (ytdl.validateURL(subcontent)) youtubetytdlturltid = ytdl.getURLVideoID(subcontent); //URLからVideoIDを取得
+            if (ytdl.validateID(subcontent)) youtubetytdlturltid = subcontent;
+            const videoid = youtubetytdlturltid;
             if (!voice.youtubecache[videoid]) await ytdl.getInfo(subcontent).then(info => voice.youtubecache[videoid] = info.player_response.videoDetails); //youtubeのデータがキャッシュされてなかったら取得
-            client.user.setPresence({
-              activities: [{
-                name: "There are " + Object.keys(voice.youtubecache).length + " songs."
-              }],
-              status: "online"
-            });
-            server.channellist[channel].playlist.push({ //再生リストに追加
+            resetstatus();
+            const addvoideodata = { //再生リストに追加
               url: videoid, //VideoIDを保管
               user: message.author.id //追加者を記録
-            });
+            };
+            server.channellist[channel].playlist.push(addvoideodata);
             if (voice.default.audiocache) { //音声ファイルをキャッシュするかどうかを確認してから
               if (!fs.existsSync("ytaudio")) fs.mkdirSync("ytaudio"); //フォルダがなければ作成
               if (!fs.existsSync("ytaudio/" + videoid + ".mp3")) ytdl(videoid, { filter: "audioonly", quality: "highest" }).pipe(fs.createWriteStream("ytaudio/" + videoid + ".mp3")); //YouTubeの音声ファイルが無ければ取得(非同期
             };
-            message.reply({ //追加を通知
-              content: "再生リストに追加しました！",
-              embeds: [new EmbedBuilder()
-                .setTitle("**" + voice.youtubecache[videoid].title + "**")
-                .setDescription("再生時間: " + (await timeString(voice.youtubecache[videoid].lengthSeconds)))
-                .setAuthor({ name: message.author.username, iconURL: message.author.avatarURL() })
-                .setURL("https://youtu.be/" + videoid)
-                .setThumbnail("https://i.ytimg.com/vi/" + videoid + "/hqdefault.jpg")
-              ]
-            });
+            message.reply(await videoembed("再生リストに追加しました！", addvoideodata));
             break;
           }
           case "play": {
@@ -202,16 +174,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
               selfDeaf: true //スピーカーミュート
             });
             ytplay(message.guildId, channel);
-            message.reply({ //追加を通知
-              content: "再生を始めます！",
-              embeds: [new EmbedBuilder()
-                .setTitle("**" + voice.youtubecache[server.channellist[channel].playing.url].title + "**")
-                .setDescription("再生時間: " + (await timeString(voice.youtubecache[server.channellist[channel].playing.url].lengthSeconds)))
-                .setAuthor({ name: client.users.cache.get(server.channellist[channel].playing.user).username, iconURL: client.users.cache.get(server.channellist[channel].playing.user).avatarURL() })
-                .setURL("https://youtu.be/" + server.channellist[channel].playing.url)
-                .setThumbnail("https://i.ytimg.com/vi/" + server.channellist[channel].playing.url + "/hqdefault.jpg")
-              ]
-            });
+            message.reply(await videoembed("再生を始めます！", server.channellist[channel].playing));
             break;
           }
           case "stop": {
@@ -219,27 +182,18 @@ client.on("messageCreate", async message => { //メッセージを受信した�
             if (!voice.default.audiocache) server.ytstream.destroy(); //音声ファイルをキャッシュしないか確認してから、ストリームを切断
             server.connection.destroy(); //ボイスチャット切断
             server.playing = null; //再生中のチャンネル場所を破棄
-            message.reply({ content: "再生を停止しました！" });
+            message.reply(await videoembed("再生を停止しました！"));
             break;
           }
           case "skip": {
             if (server.playing != channel) return message.reply({ content: "現在音楽を再生していません..." }); //そのチャンネルで再生をしていない場合
             ytplay(message.guildId, channel);
-            message.reply({ //追加を通知
-              content: "次の曲の再生を始めます！",
-              embeds: [new EmbedBuilder()
-                .setTitle("**" + voice.youtubecache[server.channellist[channel].playing.url].title + "**")
-                .setDescription("再生時間: " + (await timeString(voice.youtubecache[server.channellist[channel].playing.url].lengthSeconds)))
-                .setAuthor({ name: client.users.cache.get(server.channellist[channel].playing.user).username, iconURL: client.users.cache.get(server.channellist[channel].playing.user).avatarURL() })
-                .setURL("https://youtu.be/" + server.channellist[channel].playing.url)
-                .setThumbnail("https://i.ytimg.com/vi/" + server.channellist[channel].playing.url + "/hqdefault.jpg")
-              ]
-            });
+            message.reply((await videoembed("次の曲の再生を始めます！", server.channellist[channel].playing)));
             break;
           }
           case "volume": {
             let volume = Number(subcontent);
-            if (volume == NaN) return message.reply({ content: "`" + volume + "`が理解できませんでした..." });
+            if (volume == NaN) return message.reply(await videoembed("`" + volume + "`が理解できませんでした..."));
             if (volume < 0) {
               volume = 0;
             } else if (volume > 100) {
@@ -247,7 +201,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
             };
             if (server.playing == channel) server.resource.volume.volume = volume / 100;
             server.channellist[channel].volume = volume;
-            message.reply({ content: "音量を" + volume + "%にしました！" });
+            message.reply(await videoembed("音量を" + volume + "%にしました！"));
             break;
           }
           case "repeat": {
@@ -262,7 +216,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
               case 1: repeat = "リピート"; break;
               case 2: repeat = "１曲リピート"; break;
             };
-            message.reply({ content: "リピート状態を**" + repeat + "**に変更しました！" });
+            message.reply(await videoembed("リピート状態を**" + repeat + "**に変更しました！"));
             break;
           }
           case "remove": {
@@ -271,20 +225,11 @@ client.on("messageCreate", async message => { //メッセージを受信した�
             if (number > server.channellist[channel].playlist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
             if (number == 0) {
               server.channellist[channel].playlist.splice(0);
-              message.reply({ content: "全ての曲を削除しました！" });
+              message.reply(await videoembed("全ての曲を削除しました！"));
             } else {
               let data = JSON.parse(JSON.stringify(server.channellist[channel].playlist[number - 1]));
               server.channellist[channel].playlist.splice((number - 1), 1);
-              message.reply({
-                content: "削除しました～",
-                embeds: [new EmbedBuilder()
-                  .setTitle("**" + voice.youtubecache[data.url].title + "**")
-                  .setDescription("再生時間: " + (await timeString(voice.youtubecache[data.url].lengthSeconds)))
-                  .setAuthor({ name: client.users.cache.get(data.user).username, iconURL: client.users.cache.get(data.user).avatarURL() })
-                  .setURL("https://youtu.be/" + data.url)
-                  .setThumbnail("https://i.ytimg.com/vi/" + data.url + "/hqdefault.jpg")
-                ]
-              });
+              message.reply(await videoembed("削除しました～", data));
             };
             break;
           }
@@ -360,7 +305,84 @@ const ytplay = async (guildId, voiceid) => {
   };
 };
 
-const jsonerror = () => {
+const videoembed = async (content, data) => {
+  const outdata = {};
+  try {
+    outdata.content = content;
+    if (data) {
+      const embed = new EmbedBuilder()
+        .setTitle("**" + voice.youtubecache[data.url].title + "**")
+        .setDescription("再生時間: " + (await timeString(voice.youtubecache[data.url].lengthSeconds)))
+        .setAuthor({ name: client.users.cache.get(data.user).username, iconURL: client.users.cache.get(data.user).avatarURL() })
+        .setURL("https://youtu.be/" + data.url)
+        .setThumbnail("https://i.ytimg.com/vi/" + data.url + "/hqdefault.jpg");
+      outdata.embeds = [embed];
+    };
+  } catch (e) {
+    console.error(e);
+    console.log("embed作成中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+    outdata.content = "エラーが発生しました。";
+  };
+  return outdata;
+};
+
+const resetstatus = async () => {
+  try {
+    client.user.setPresence({
+      activities: [{
+        name: "There are " + Object.keys(voice.youtubecache).length + " songs."
+      }],
+      status: "online"
+    });
+  } catch (e) {
+    console.error(e);
+    console.log("ステータス設定中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+  };
+};
+
+const jsonload = async () => {
+  try {
+    fs.readFile("data.json", (err, data) => {
+      if (err) { jsonerror() } else {
+        voice = JSON.parse(data || "null");
+        if (voice == "null") return jsonerror();
+        resetstatus();
+        console.log("jsonデータを取り込みました～");
+      };
+    });
+  } catch (e) {
+    console.error(e);
+    console.log("json読み込み中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+  };
+};
+
+const savejson = async () => {
+  try {
+    let json = {
+      server: {},
+      youtubecache: voice.youtubecache,
+      default: voice.default
+    };
+    for (let i = 0; Object.keys(voice.server).length != i; i++) {
+      let guildkey = Object.keys(voice.server)[i];
+      let channelplay = voice.server[guildkey];
+      json.server[guildkey] = {
+        connection: {},
+        resource: {},
+        ytstream: {},
+        playing: null,
+        channellist: channelplay.channellist
+      };
+    };
+    fs.writeFile("data.json", JSON.stringify(decycle(json), null, "\t"), e => { if (e) throw e; });
+    console.log("jsonを更新しました");
+  } catch (e) {
+    console.error(e);
+    console.log("json記録中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+  };
+};
+
+const jsonerror = async () => {
   try {
     console.log("jsonの内容が破損、または取得が出来ないためファイルを再作成します。");
     if (fs.existsSync("data.json")) fs.unlinkSync("data.json");
@@ -388,32 +410,6 @@ const timeString = async seconds => {
   } catch (e) {
     console.error(e);
     console.log("timeStringにて計算処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-  };
-};
-
-const savejson = () => {
-  try {
-    let json = {
-      server: {},
-      youtubecache: voice.youtubecache,
-      default: voice.default
-    };
-    for (let i = 0; Object.keys(voice.server).length != i; i++) {
-      let guildkey = Object.keys(voice.server)[i];
-      let channelplay = voice.server[guildkey];
-      json.server[guildkey] = {
-        connection: {},
-        resource: {},
-        ytstream: {},
-        playing: null,
-        channellist: channelplay.channellist
-      };
-    };
-    fs.writeFile("data.json", JSON.stringify(decycle(json), null, "\t"), e => { if (e) throw e; });
-    console.log("jsonを更新しました");
-  } catch (e) {
-    console.error(e);
-    console.log("json記録中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
   };
 };
 

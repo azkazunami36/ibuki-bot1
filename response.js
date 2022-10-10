@@ -8,26 +8,15 @@ try {
                 data += chunk;
             });
             req.on("end", function () {
-                if (!data) {
-                    console.log("何かが送信されたため、Botが立ち上がりました。");
-                    res.end();
-                    return;
-                }
+                if (!data) data += "type=null";
                 var dataObject = qs.parse(data);
-                if (dataObject.type == "wake") {
-                    console.log("Botを立ち上げるためにwakeが送信されました。");
-                    res.end();
-                    return;
-                } else {
-                    console.log("Post内容:" + dataObject.type);
-                }
+                console.log("Postされました。", dataObject);
                 res.end();
             });
-        }
-        else if (req.method == 'GET') {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end('Discord Bot is active now\n');
-        }
+        } else if (req.method == "GET") {
+            res.writeHead(200, { "Content-Type": "text/plain" });
+            res.end("音楽botは現在動作しています！");
+        };
     }).listen(3000);
 } catch (e) {
     console.log("httpでエラー:" + e.message);
