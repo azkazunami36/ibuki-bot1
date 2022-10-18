@@ -17,7 +17,7 @@ try {
             res.writeHead(200, { "Content-Type": "text/plain" });
             res.end("音楽botは現在動作しています！");
         };
-    }).listen(3000);
+    }).listen(process.env.PORT || 3000);
 } catch (e) {
     console.log("httpでエラー:" + e.message);
 };
