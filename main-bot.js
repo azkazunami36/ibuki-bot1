@@ -7,12 +7,33 @@ const { decycle } = require("json-cyclic"); //json管理に必須
 const config = { prefix: "voice!" }; //json
 const token = process.env.token; //トークン
 const client = new Client({
-  partials: [Partials.Channel],
+  partials: [
+      Partials.Channel,
+      Partials.GuildMember,
+      Partials.GuildScheduledEvent,
+      Partials.Message,
+      Partials.Reaction,
+      Partials.ThreadMember,
+      Partials.User
+  ],
   intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+      GatewayIntentBits.DirectMessageReactions,
+      GatewayIntentBits.DirectMessageTyping,
+      GatewayIntentBits.DirectMessages,
+      GatewayIntentBits.GuildBans,
+      GatewayIntentBits.GuildEmojisAndStickers,
+      GatewayIntentBits.GuildIntegrations,
+      GatewayIntentBits.GuildInvites,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildMessageReactions,
+      GatewayIntentBits.GuildMessageTyping,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.GuildPresences,
+      GatewayIntentBits.GuildScheduledEvents,
+      GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildWebhooks,
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.MessageContent
   ]
 }); //クライアント
 
@@ -130,7 +151,7 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         const command = incommands[0].slice(config.prefix.length).trim().split(/ +/g)[0]; //Prefixを取り除く
         const subcontent = incommands[1]; //2番目の文字列を受け取る
 
-        if (!voice.server[message.guildId]) voice.server[message.guildId] = JSON.parse(JSON.stringify(voice.default.guild)); //サーバー用オブジェクト初期化
+        await setChannelData(message.guildId, message.member.voice.channelId);
         const server = voice.server[message.guildId]; //コード見やすくするための
         const channel = String(message.member.voice.channelId); //ボイスチャンネルの場所を取得
         console.log(command);
@@ -140,27 +161,12 @@ client.on("messageCreate", async message => { //メッセージを受信した�
           content: "ボイスチャットに参加していないようです...\n" +
             "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
         });
-        if (!server.channellist[channel]) server.channellist[channel] = JSON.parse(JSON.stringify(voice.default.channel)); //チャンネル用オブジェクト初期化
         switch (command) {
           case "add": {
             if (!subcontent) return message.reply({ content: "URLを指定しましょう...\n`" + config.prefix + "add [URL]`" }); //URLがない場合
             if (!ytdl.validateURL(subcontent) && !ytdl.validateID(subcontent)) return message.reply({ content: "送られたものがYouTube用のURLではないみたいです...\n" + "内容: " + subcontent }); //URLが認識できない場合
-            let youtubetytdlturltid;
-            if (ytdl.validateURL(subcontent)) youtubetytdlturltid = ytdl.getURLVideoID(subcontent); //URLからVideoIDを取得
-            if (ytdl.validateID(subcontent)) youtubetytdlturltid = subcontent;
-            const videoid = youtubetytdlturltid;
-            if (!voice.youtubecache[videoid]) await ytdl.getInfo(subcontent).then(info => voice.youtubecache[videoid] = info.player_response.videoDetails); //youtubeのデータがキャッシュされてなかったら取得
-            resetstatus();
-            const addvoideodata = { //再生リストに追加
-              url: videoid, //VideoIDを保管
-              user: message.author.id //追加者を記録
-            };
-            server.channellist[channel].playlist.push(addvoideodata);
-            if (voice.default.audiocache) { //音声ファイルをキャッシュするかどうかを確認してから
-              if (!fs.existsSync("ytaudio")) fs.mkdirSync("ytaudio"); //フォルダがなければ作成
-              if (!fs.existsSync("ytaudio/" + videoid + ".mp3")) ytdl(videoid, { filter: "audioonly", quality: "highest" }).pipe(fs.createWriteStream("ytaudio/" + videoid + ".mp3")); //YouTubeの音声ファイルが無ければ取得(非同期
-            };
-            message.reply(await videoembed("再生リストに追加しました！", addvoideodata));
+            const videoid = await addYouTubeVideo(message.guildId, channel, subcontent, message.author.id);
+            message.reply(await videoembed("再生リストに追加しました！", { url: videoid.videoid, user: message.author.id }));
             break;
           }
           case "play": {
@@ -233,12 +239,18 @@ client.on("messageCreate", async message => { //メッセージを受信した�
             };
             break;
           }
+          case "list": {
+            if (!server.channellist[channel].playlist[0]) return message.reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+            const number = Number(subcontent);
+            if (number > server.channellist[channel].playlist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+            break;
+          }
         };
         savejson();
       } catch (e) {
         console.error(e);
         console.log("コマンド処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-        let random = new Date.now();
+        let random = new Date;
         console.log("コマンド送信者にエラーを通知するメッセージと、エラー時の番号を送信しました。次の番号と一致する場合そのエラー内容をあんこかずなみ36にお送りください。:" + random);
         message.reply("エラーが発生しました...\n次の番号が開発者には役に立つかもしれません...`" + random + "`");
       };
@@ -248,6 +260,27 @@ client.on("messageCreate", async message => { //メッセージを受信した�
     console.log("メッセージ処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
   };
 });
+
+const addYouTubeVideo = async (guildid, channelid, data, user) => {
+  let youtubetytdlturltid;
+  if (ytdl.validateURL(data)) youtubetytdlturltid = ytdl.getURLVideoID(data); //URLからVideoIDを取得
+  if (ytdl.validateID(data)) youtubetytdlturltid = data;
+  const videoid = youtubetytdlturltid;
+  if (!voice.youtubecache[videoid]) await ytdl.getInfo(data).then(info => voice.youtubecache[videoid] = info.player_response.videoDetails); //youtubeのデータがキャッシュされてなかったら取得
+  resetstatus();
+  voice.server[guildid].channellist[channelid].playlist.push({ url: videoid, user: user });
+  if (voice.default.audiocache) { //音声ファイルをキャッシュするかどうかを確認してから
+    if (!fs.existsSync("ytaudio")) fs.mkdirSync("ytaudio"); //フォルダがなければ作成
+    if (!fs.existsSync("ytaudio/" + videoid + ".mp3")) await ytdl(videoid, { filter: "audioonly", quality: "highest" }).pipe(fs.createWriteStream("ytaudio/" + videoid + ".mp3")); //YouTubeの音声ファイルが無ければ取得(非同期
+  };
+  return { videoid: videoid };
+};
+
+const setChannelData = async (guildid, channelid) => {
+  if (!voice.server[guildid]) voice.server[guildid] = JSON.parse(JSON.stringify(voice.default.guild)); //サーバー用オブジェクト初期化
+  if (!voice.server[guildid].channellist[channelid]) voice.server[guildid].channellist[channelid] = JSON.parse(JSON.stringify(voice.default.channel)); //チャンネル用オブジェクト初期化
+  voice.server[guildid].channellist[channelid].channelname = client.channels.cache.get(channelid).name;
+};
 
 const ytplay = async (guildId, voiceid) => {
   try {
