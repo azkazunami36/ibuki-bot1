@@ -8,32 +8,32 @@ const config = { prefix: "voice!" }; //json
 const token = process.env.token; //トークン
 const client = new Client({
   partials: [
-      Partials.Channel,
-      Partials.GuildMember,
-      Partials.GuildScheduledEvent,
-      Partials.Message,
-      Partials.Reaction,
-      Partials.ThreadMember,
-      Partials.User
+    Partials.Channel,
+    Partials.GuildMember,
+    Partials.GuildScheduledEvent,
+    Partials.Message,
+    Partials.Reaction,
+    Partials.ThreadMember,
+    Partials.User
   ],
   intents: [
-      GatewayIntentBits.DirectMessageReactions,
-      GatewayIntentBits.DirectMessageTyping,
-      GatewayIntentBits.DirectMessages,
-      GatewayIntentBits.GuildBans,
-      GatewayIntentBits.GuildEmojisAndStickers,
-      GatewayIntentBits.GuildIntegrations,
-      GatewayIntentBits.GuildInvites,
-      GatewayIntentBits.GuildMembers,
-      GatewayIntentBits.GuildMessageReactions,
-      GatewayIntentBits.GuildMessageTyping,
-      GatewayIntentBits.GuildMessages,
-      GatewayIntentBits.GuildPresences,
-      GatewayIntentBits.GuildScheduledEvents,
-      GatewayIntentBits.GuildVoiceStates,
-      GatewayIntentBits.GuildWebhooks,
-      GatewayIntentBits.Guilds,
-      GatewayIntentBits.MessageContent
+    GatewayIntentBits.DirectMessageReactions,
+    GatewayIntentBits.DirectMessageTyping,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.GuildBans,
+    GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildIntegrations,
+    GatewayIntentBits.GuildInvites,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessageReactions,
+    GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildScheduledEvents,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildWebhooks,
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.MessageContent
   ]
 }); //クライアント
 
@@ -377,14 +377,19 @@ const resetstatus = async () => {
 
 const jsonload = async () => {
   try {
-    fs.readFile("data.json", (err, data) => {
-      if (err) { jsonerror() } else {
-        voice = JSON.parse(data || "null");
-        if (voice == "null") return jsonerror();
-        resetstatus();
-        console.log("jsonデータを取り込みました～");
-      };
+    const req = require("http").request("http://localhost", {
+      port: 3000,
+      method: "post",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
     });
+    req.on('response', res => {
+      let data = "";
+      res.on("data", chunk => { data += chunk; });
+      res.on("end", () => {voice = JSON.parse(data).music_bot; });
+    });
+    req.write(JSON.stringify([""]));
+    req.on('error', err => console.log(err));
+    req.end();
   } catch (e) {
     console.error(e);
     console.log("json読み込み中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
@@ -409,22 +414,17 @@ const savejson = async () => {
         channellist: channelplay.channellist
       };
     };
-    fs.writeFile("data.json", JSON.stringify(decycle(json), null, "\t"), e => { if (e) throw e; });
-    console.log("jsonを更新しました");
+    const req = require("http").request("http://localhost", {
+      port: 3000,
+      method: "post",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
+    });
+    req.write(JSON.stringify(["music_bot", decycle(json)]));
+    req.on('error', err => console.log(err));
+    req.end();
   } catch (e) {
     console.error(e);
     console.log("json記録中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-  };
-};
-
-const jsonerror = async () => {
-  try {
-    console.log("jsonの内容が破損、または取得が出来ないためファイルを再作成します。");
-    if (fs.existsSync("data.json")) fs.unlinkSync("data.json");
-    fs.writeFileSync("data.json", JSON.stringify(voice));
-  } catch (e) {
-    console.error(e);
-    console.log("json作成中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
   };
 };
 
