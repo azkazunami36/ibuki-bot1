@@ -134,7 +134,7 @@ let voice = {
 client.on("ready", async () => {
   try {
     console.log("準備おっけい！");
-    if (fs.existsSync("data.json")) { jsonload(); } else { jsonerror(); };
+    jsonload();
   } catch (e) {
     console.error(e);
     console.log("起動後処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
@@ -336,7 +336,7 @@ const ytplay = async (guildId, voiceid) => {
     };
   } catch (e) {
     console.error(e);
-    console.log("json記録中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+    console.log("プレイヤー処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
   };
 };
 
