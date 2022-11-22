@@ -6,6 +6,7 @@ require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const { decycle } = require("json-cyclic"); //json管理に必須
 const config = { prefix: "voice!" }; //json
 const token = process.env.token; //トークン
+const { music } = require("../multi-function-discord/main");
 const client = new Client({
   partials: [
     Partials.Channel,
@@ -151,16 +152,16 @@ client.on("messageCreate", async message => { //メッセージを受信した�
         const command = incommands[0].slice(config.prefix.length).trim().split(/ +/g)[0]; //Prefixを取り除く
         const subcontent = incommands[1]; //2番目の文字列を受け取る
 
-        await setChannelData(message.guildId, message.member.voice.channelId);
-        const server = voice.server[message.guildId]; //コード見やすくするための
         const channel = String(message.member.voice.channelId); //ボイスチャンネルの場所を取得
-        console.log(command);
-        console.log(subcontent);
-        console.log(channel);
-        if (channel == "null") return message.reply({ //ボイスチャット未参加の場合リターン
+        if (channel == "null" || !channel) return message.reply({ //ボイスチャット未参加の場合リターン
           content: "ボイスチャットに参加していないようです...\n" +
             "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
         });
+        await setChannelData(message.guildId, message.member.voice.channel.id);
+        const server = voice.server[message.guildId]; //コード見やすくするための
+        console.log(command);
+        console.log(subcontent);
+        console.log(channel);
         switch (command) {
           case "add": {
             if (!subcontent) return message.reply({ content: "URLを指定しましょう...\n`" + config.prefix + "add [URL]`" }); //URLがない場合
@@ -279,7 +280,7 @@ const addYouTubeVideo = async (guildid, channelid, data, user) => {
 const setChannelData = async (guildid, channelid) => {
   if (!voice.server[guildid]) voice.server[guildid] = JSON.parse(JSON.stringify(voice.default.guild)); //サーバー用オブジェクト初期化
   if (!voice.server[guildid].channellist[channelid]) voice.server[guildid].channellist[channelid] = JSON.parse(JSON.stringify(voice.default.channel)); //チャンネル用オブジェクト初期化
-  voice.server[guildid].channellist[channelid].channelname = client.channels.cache.get(channelid).name;
+  voice.server[guildid].channellist[channelid].channelname = (await client.channels.cache.get(channelid)).name;
 };
 
 const ytplay = async (guildId, voiceid) => {
@@ -385,7 +386,7 @@ const jsonload = async () => {
     req.on('response', res => {
       let data = "";
       res.on("data", chunk => { data += chunk; });
-      res.on("end", () => {voice = JSON.parse(data).music_bot; });
+      res.on("end", () => { voice = JSON.parse(data).music_bot; });
     });
     req.write(JSON.stringify([""]));
     req.on('error', err => console.log(err));
