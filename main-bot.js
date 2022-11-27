@@ -386,9 +386,9 @@ const jsonload = async () => {
     req.on('response', res => {
       let data = "";
       res.on("data", chunk => { data += chunk; });
-      res.on("end", () => { voice = JSON.parse(data).music_bot; });
+      res.on("end", () => { voice = JSON.parse(data); });
     });
-    req.write(JSON.stringify([""]));
+    req.write(JSON.stringify(["music_bot"]));
     req.on('error', err => console.log(err));
     req.end();
   } catch (e) {
