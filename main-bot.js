@@ -6,7 +6,13 @@ require("dotenv").config(); //envデータ取得用(Glitchでは不要)
 const { decycle } = require("json-cyclic"); //json管理に必須
 const config = { prefix: "voice!" }; //json
 const token = process.env.token; //トークン
-const { music } = require("../multi-function-discord/main");
+const { music } = () => {
+  let min;
+  try {
+    min = require("../multi-function-discord/main");
+  } catch (e) {console.log(e);};
+  return min;
+};
 const client = new Client({
   partials: [
     Partials.Channel,
