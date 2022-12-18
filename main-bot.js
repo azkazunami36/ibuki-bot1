@@ -2,9 +2,7 @@ const { Client, GatewayIntentBits, Partials, Events, EmbedBuilder } = require("d
 const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require("@discordjs/voice");
 const ytdl = require("ytdl-core");
 const fs = require("fs");
-const { timeString, jsonRebuild, jsonload, savejson } = require("./func");
 require("dotenv").config();
-const { decycle } = require("json-cyclic");
 const client = new Client({
   partials: [
     Partials.Channel,
@@ -164,6 +162,7 @@ client.on(Events.MessageCreate, async message => {
         break;
       }
       case "repeat": {
+
         switch (subcontent) {
           case "repeat": channeldata.repeat = 1; break;
           case "one-repeat": channeldata.repeat = 2; break;
@@ -182,12 +181,16 @@ client.on(Events.MessageCreate, async message => {
         if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
         const number = Number(subcontent);
         if (number > plist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
-        if (number == 0 || !number) {
+        if (number == 0) {
           plist.splice(0);
           message.reply(await videoembed("全ての曲を削除しました！"));
         } else if (number != 0) {
           let data = jsonRebuild(plist[number - 1]);
           plist.splice((number - 1), 1);
+          message.reply(await videoembed("削除しました～", data));
+        } else if (!number) {
+          let data = jsonRebuild(plist[channeldata.playing]);
+          plist.splice((channeldata.playing), 1);
           message.reply(await videoembed("削除しました～", data));
         };
         break;
@@ -264,7 +267,7 @@ const ytplay = async (guildid, voiceid) => {
 const botStatusSet = async () => {
   client.user.setPresence({
     activities: [{
-      name: "現在" + Object.keys(clientdata.ytdt).length + "曲が読み込まれてますっ"
+      name: Object.keys(clientdata.ytdt).length + "曲キャッシュ済みっ"
     }],
     status: "online"
   });
@@ -290,5 +293,62 @@ const videoembed = async (content, data) => {
     outdata.embeds = [embed];
   };
   return outdata;
+};
+/**
+* 秒のデータを文字列として置き換えます。
+* @param seconds - 秒数を入力します。
+* @returns - 時間、分、秒が組み合わさった文字列を出力します。
+*/
+const timeString = async seconds => {
+   let minutes = 0, hour = 0, timeset = "";
+   for (minutes; seconds > 59; minutes++) seconds -= 60;
+   for (hour; minutes > 59; hour++) minutes -= 60;
+   if (hour != 0) timeset += hour + "時間";
+   if (minutes != 0) timeset += minutes + "分";
+   if (seconds != 0) timeset += seconds + "秒";
+   return timeset;
+};
+/**
+* jsonデータを入力をもとにコピーを作成する
+* @param {*} j jsonデータを入力
+* @returns んで出力
+*/
+const jsonRebuild = j => { return JSON.parse(JSON.stringify(j)); };
+/**
+* data-serverからmusic_botのjsonデータを取得する
+*/
+const jsonload = () => {
+   return new Promise((resolve, reject) => {
+       const req = require("http").request("http://localhost", {
+           port: 3000,
+           method: "post",
+           headers: { "Content-Type": "text/plain;charset=utf-8" }
+       });
+       req.on("response", res => {
+           let data = "";
+           res.on("data", chunk => { data += chunk; });
+           res.on("end", () => { resolve(data); });
+       });
+       req.write(JSON.stringify(["music_botv2"]));
+       req.on("error", reject);
+       req.end();
+   });
+};
+/**
+* data-serverにmusic_botのjsonデータを格納する
+* @param {*} j 
+*/
+const savejson = async j => {
+   return new Promise((resolve, reject) => {
+       const req = require("http").request("http://localhost", {
+           port: 3000,
+           method: "post",
+           headers: { "Content-Type": "text/plain;charset=utf-8" }
+       });
+       req.on("response", resolve);
+       req.write(JSON.stringify(["music_botv2", j]));
+       req.on("error", reject);
+       req.end();
+   });
 };
 client.login(process.env.token); //ログイン
