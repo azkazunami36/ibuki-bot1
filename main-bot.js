@@ -172,7 +172,7 @@ client.on(Events.MessageCreate, async message => {
       case "add": {
         if (!subcontent)
           return message.reply({
-            content: "URLを指定しましょう...\n`" + config.prefix + "add [URL]`"
+            content: "URLを指定しましょう...\n`" + prefix + "add [URL]`"
           });
         if (!ytdl.validateURL(subcontent) && !ytdl.validateID(subcontent))
           return message.reply({
@@ -277,7 +277,7 @@ client.on(Events.MessageCreate, async message => {
         break;
       }
       case "remove": {
-        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
         const number = Number(subcontent);
         if (number > plist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         if (number == 0) {
@@ -319,12 +319,13 @@ const ytplay = async (guildid, voiceid) => {
   server.playing = voiceid;
   while (server.playing) {
     if (plist[0]) {
-      if (channeldata.repeat == 1) console.log("1曲リピートのため、トラック番号は同じままになります。");
+      if (channeldata.repeat == 2) console.log("1曲リピートのため、トラック番号は同じままになります。");
       if (plist.length == channeldata.playing) {
         channeldata.playing = 0;
         console.log("リピートにより数字が0に戻されました。");
         if (channeldata.repeat == 0) {
           musicstop(guildid);
+          console.log("リピートオフのため、そのまま停止をします。")
           break;
         };
       };
