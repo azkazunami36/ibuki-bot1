@@ -93,7 +93,7 @@ client.on(Events.MessageCreate, async message => {
         if (!clientdata.ytdt[videoid])
           await ytdl.getInfo(videoid)
             .then(info => clientdata.ytdt[videoid] = info.videoDetails);
-        const data = { url: videoid, user: userid, data: clientdata.ytdt[videoid] };
+        const data = { url: videoid, user: userid };
         plist.push(data);
         botStatusSet();
         if (clientdata.cacheis) {
@@ -275,7 +275,7 @@ const botStatusSet = async () => {
 /**
  * EmbedBuilderを関数化した
  * @param {string} content 
- * @param {{user: string, url: string, data: {}}} data 
+ * @param {{user: string, url: string}} data 
  * @returns 
  */
 const videoembed = async (content, data) => {
@@ -285,8 +285,8 @@ const videoembed = async (content, data) => {
     const { EmbedBuilder } = require("discord.js");
     const user = (await client.users.fetch(data.user));
     const embed = new EmbedBuilder()
-      .setTitle("**" + data.data.title + "**")
-      .setDescription("再生時間: " + (await timeString(data.data.lengthSeconds)))
+      .setTitle("**" + clientdata.ytdt[data.url].title + "**")
+      .setDescription("再生時間: " + (await timeString(clientdata.ytdt[data.url].lengthSeconds)))
       .setAuthor({ name: user.username, iconURL: user.avatarURL() })
       .setURL("https://youtu.be/" + data.url)
       .setThumbnail("https://i.ytimg.com/vi/" + data.url + "/hqdefault.jpg");
