@@ -320,6 +320,7 @@ const ytplay = async (guildid, voiceid) => {
   while (server.playing) {
     if (plist[0]) {
       if (channeldata.repeat == 2) console.log("1曲リピートのため、トラック番号は同じままになります。");
+      if (channeldata.repeat == 1) channeldata.playing += 1;
       if (plist.length == channeldata.playing) {
         channeldata.playing = 0;
         console.log("リピートにより数字が0に戻されました。");
@@ -356,7 +357,7 @@ const ytplay = async (guildid, voiceid) => {
       server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true });
       server.resource.volume.setVolume(channeldata.volume / 100);
       player.play(server.resource);
-      console.log("再生が開始しました。: " + clientdata.ytdt[plist[channeldata.playing].url].title + "\n" +
+      console.log("再生が開始しました。" + (channeldata.playing + 1) + "曲目: " + clientdata.ytdt[plist[channeldata.playing].url].title + "\n" +
         "音量は" + (channeldata.volume) + "%です。");
       await entersState(player, AudioPlayerStatus.Playing);
       await entersState(player, AudioPlayerStatus.Idle);
