@@ -33,6 +33,93 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+const botStatusSet = async () => {
+  client.user.setPresence({
+    activities: [{
+      name: Object.keys(clientdata.ytdt).length + "曲キャッシュ済みっ"
+    }],
+    status: "online"
+  });
+};
+/**
+ * EmbedBuilderを関数化した
+ * @param {string} content 
+ * @param {{user: string, url: string}} data 
+ * @returns 
+ */
+const videoembed = async (content, data) => {
+  const outdata = {};
+  outdata.content = content;
+  if (data) {
+    const { EmbedBuilder } = require("discord.js");
+    const user = (await client.users.fetch(data.user));
+    const embed = new EmbedBuilder()
+      .setTitle("**" + clientdata.ytdt[data.url].title + "**")
+      .setDescription("再生時間: " + (await timeString(clientdata.ytdt[data.url].lengthSeconds)))
+      .setAuthor({ name: user.username, iconURL: user.avatarURL() })
+      .setURL("https://youtu.be/" + data.url)
+      .setThumbnail("https://i.ytimg.com/vi/" + data.url + "/hqdefault.jpg");
+    outdata.embeds = [embed];
+  };
+  return outdata;
+};
+/**
+* 秒のデータを文字列として置き換えます。
+* @param seconds - 秒数を入力します。
+* @returns - 時間、分、秒が組み合わさった文字列を出力します。
+*/
+const timeString = async seconds => {
+  let minutes = 0, hour = 0, timeset = "";
+  for (minutes; seconds > 59; minutes++) seconds -= 60;
+  for (hour; minutes > 59; hour++) minutes -= 60;
+  if (hour != 0) timeset += hour + "時間";
+  if (minutes != 0) timeset += minutes + "分";
+  if (seconds != 0) timeset += seconds + "秒";
+  return timeset;
+};
+/**
+* jsonデータを入力をもとにコピーを作成する
+* @param {*} j jsonデータを入力
+* @returns んで出力
+*/
+const jsonRebuild = j => { return JSON.parse(JSON.stringify(j)); };
+/**
+* data-serverからmusic_botのjsonデータを取得する
+*/
+const jsonload = () => {
+  return new Promise((resolve, reject) => {
+    const req = require("http").request("http://localhost", {
+      port: 3000,
+      method: "post",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
+    });
+    req.on("response", res => {
+      let data = "";
+      res.on("data", chunk => { data += chunk; });
+      res.on("end", () => { resolve(data); });
+    });
+    req.write(JSON.stringify(["music_botv2"]));
+    req.on("error", reject);
+    req.end();
+  });
+};
+/**
+* data-serverにmusic_botのjsonデータを格納する
+* @param {*} j 格納するjsonを入力
+*/
+const savejson = async (j, name) => {
+  return new Promise((resolve, reject) => {
+    const req = require("http").request("http://localhost", {
+      port: 3000,
+      method: "post",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }
+    });
+    req.on("response", resolve);
+    req.write(JSON.stringify([name, j]));
+    req.on("error", reject);
+    req.end();
+  });
+};
 let clientdata;
 jsonload().then(data => clientdata = JSON.parse(data));
 const temp = {};
@@ -207,147 +294,55 @@ client.on(Events.MessageCreate, async message => {
   };
 });
 const ytplay = async (guildid, voiceid) => {
-  try {
-    const server = temp[guildid];
-    const guilddata = clientdata.glist[guildid];
-    const channeldata = guilddata.chlist[voiceid];
-    const plist = channeldata.plist;
-    server.playing = voiceid;
-    while (server.playing) {
-      if (plist[0]) {
-        channeldata.playing += 1;
-        if (plist.length == channeldata.playing || !channeldata.playing) channeldata.playing = 0;
-      };
-      savejson(clientdata, "music_botv2");
-      if (clientdata.cacheis) {
-        if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
-        server.ytstream = "ytaudio/" + plist[channeldata.playing].url + ".mp3"; //ファイルパスを取得
-      } else {
-        try {
-          server.ytstream = ytdl(channeldata.playing.url, {  //ytdlでリアルタイムダウンロード
-            filter: format => format.audioCodec === "opus" && format.container === "webm", //取り出すデータ
-            quality: "highest", //品質
-            highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
-          });
-        } catch (e) {
-          console.error(e);
-          console.log("ytdlの処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-          console.log("ストリーム終了処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
-          server.playing = null;
-          server.ytstream.destroy();
-          break;
-        };
-      };
+  const server = temp[guildid];
+  const guilddata = clientdata.glist[guildid];
+  const channeldata = guilddata.chlist[voiceid];
+  const plist = channeldata.plist;
+  server.playing = voiceid;
+  while (server.playing) {
+    if (plist[0]) {
+      channeldata.playing += 1;
+      if (plist.length == channeldata.playing || !channeldata.playing) channeldata.playing = 0;
+    };
+    savejson(clientdata, "music_botv2");
+    if (clientdata.cacheis) {
+      if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
+      server.ytstream = "ytaudio/" + plist[channeldata.playing].url + ".mp3"; //ファイルパスを取得
+    } else {
       try {
-        const player = createAudioPlayer();
-        server.connection.subscribe(player);
-        server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true });
-        server.resource.volume.setVolume(channeldata.volume / 100);
-
-        player.play(server.resource); //再生
-        await entersState(player, AudioPlayerStatus.Playing);
-        await entersState(player, AudioPlayerStatus.Idle);
-        continue;
+        server.ytstream = ytdl(channeldata.playing.url, {  //ytdlでリアルタイムダウンロード
+          filter: format => format.audioCodec === "opus" && format.container === "webm", //取り出すデータ
+          quality: "highest", //品質
+          highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
+        });
       } catch (e) {
         console.error(e);
-        console.log("再生中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-        console.log("ボイスチャット切断処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
+        console.log("ytdlの処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+        console.log("ストリーム終了処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
         server.playing = null;
         server.ytstream.destroy();
-        server.connection.destroy();
         break;
       };
     };
-  } catch (e) {
-    console.error(e);
-    console.log("プレイヤー処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+    try {
+      const player = createAudioPlayer();
+      server.connection.subscribe(player);
+      server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true });
+      server.resource.volume.setVolume(channeldata.volume / 100);
+
+      player.play(server.resource); //再生
+      await entersState(player, AudioPlayerStatus.Playing);
+      await entersState(player, AudioPlayerStatus.Idle);
+      continue;
+    } catch (e) {
+      console.error(e);
+      console.log("再生中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
+      console.log("ボイスチャット切断処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
+      server.playing = null;
+      server.ytstream.destroy();
+      server.connection.destroy();
+      break;
+    };
   };
-};
-const botStatusSet = async () => {
-  client.user.setPresence({
-    activities: [{
-      name: Object.keys(clientdata.ytdt).length + "曲キャッシュ済みっ"
-    }],
-    status: "online"
-  });
-};
-/**
- * EmbedBuilderを関数化した
- * @param {string} content 
- * @param {{user: string, url: string}} data 
- * @returns 
- */
-const videoembed = async (content, data) => {
-  const outdata = {};
-  outdata.content = content;
-  if (data) {
-    const { EmbedBuilder } = require("discord.js");
-    const user = (await client.users.fetch(data.user));
-    const embed = new EmbedBuilder()
-      .setTitle("**" + clientdata.ytdt[data.url].title + "**")
-      .setDescription("再生時間: " + (await timeString(clientdata.ytdt[data.url].lengthSeconds)))
-      .setAuthor({ name: user.username, iconURL: user.avatarURL() })
-      .setURL("https://youtu.be/" + data.url)
-      .setThumbnail("https://i.ytimg.com/vi/" + data.url + "/hqdefault.jpg");
-    outdata.embeds = [embed];
-  };
-  return outdata;
-};
-/**
-* 秒のデータを文字列として置き換えます。
-* @param seconds - 秒数を入力します。
-* @returns - 時間、分、秒が組み合わさった文字列を出力します。
-*/
-const timeString = async seconds => {
-  let minutes = 0, hour = 0, timeset = "";
-  for (minutes; seconds > 59; minutes++) seconds -= 60;
-  for (hour; minutes > 59; hour++) minutes -= 60;
-  if (hour != 0) timeset += hour + "時間";
-  if (minutes != 0) timeset += minutes + "分";
-  if (seconds != 0) timeset += seconds + "秒";
-  return timeset;
-};
-/**
-* jsonデータを入力をもとにコピーを作成する
-* @param {*} j jsonデータを入力
-* @returns んで出力
-*/
-const jsonRebuild = j => { return JSON.parse(JSON.stringify(j)); };
-/**
-* data-serverからmusic_botのjsonデータを取得する
-*/
-const jsonload = () => {
-  return new Promise((resolve, reject) => {
-    const req = require("http").request("http://localhost", {
-      port: 3000,
-      method: "post",
-      headers: { "Content-Type": "text/plain;charset=utf-8" }
-    });
-    req.on("response", res => {
-      let data = "";
-      res.on("data", chunk => { data += chunk; });
-      res.on("end", () => { resolve(data); });
-    });
-    req.write(JSON.stringify(["music_botv2"]));
-    req.on("error", reject);
-    req.end();
-  });
-};
-/**
-* data-serverにmusic_botのjsonデータを格納する
-* @param {*} j 格納するjsonを入力
-*/
-const savejson = async (j, name) => {
-  return new Promise((resolve, reject) => {
-    const req = require("http").request("http://localhost", {
-      port: 3000,
-      method: "post",
-      headers: { "Content-Type": "text/plain;charset=utf-8" }
-    });
-    req.on("response", resolve);
-    req.write(JSON.stringify([name, j]));
-    req.on("error", reject);
-    req.end();
-  });
 };
 client.login(process.env.token);
