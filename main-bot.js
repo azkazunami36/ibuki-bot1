@@ -145,9 +145,11 @@ client.on(Events.MessageCreate, async message => {
     console.log({
       content: content,
       guildid: guildid,
+      guildname: message.guild.name,
       channelid: channelid,
+      channelname: message.channel.name,
       userid: userid,
-      voiceAdapterCreator: voiceAdapterCreator,
+      username: message.author.username,
       command: command,
       subcontent: subcontent
     });
@@ -161,6 +163,8 @@ client.on(Events.MessageCreate, async message => {
     if (!guilddata.chlist[channelid]) guilddata.chlist[channelid] = {};
     const channeldata = guilddata.chlist[channelid];
     if (!channeldata.plist) channeldata.plist = [];
+    if (!channeldata.playing) channeldata.playing = 0;
+    if (!channeldata.volume) channeldata.volume = 50;
     const plist = channeldata.plist;
     client.channels.fetch(channelid)
       .then(channel => channeldata.chname = channel.name);
@@ -182,6 +186,7 @@ client.on(Events.MessageCreate, async message => {
             .then(info => clientdata.ytdt[videoid] = info.videoDetails);
         const data = { url: videoid, user: userid };
         plist.push(data);
+        console.log("プレイリストに" + clientdata.ytdt[data.url].title + "が追加されました。");
         botStatusSet();
         if (clientdata.cacheis) {
           if (!fs.existsSync("ytaudio")) fs.mkdirSync("ytaudio");
@@ -204,7 +209,9 @@ client.on(Events.MessageCreate, async message => {
           return message.reply({
             content: "既に他のボイスチャットで再生しています..."
           });
-        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return message.reply({
+          content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ"
+        });
         server.connection = joinVoiceChannel({ //接続
           guildId: guildid,
           channelId: channelid,
@@ -213,24 +220,25 @@ client.on(Events.MessageCreate, async message => {
         });
         ytplay(guildid, channelid);
         message.reply(
-          await videoembed("再生を始めます！: " + channeldata.playing + "番目！",
+          await videoembed("再生を始めます！: " + (channeldata.playing + 1) + "曲目",
             channeldata.plist[channeldata.playing]
           ));
         break;
       }
       case "stop": {
         if (server.playing != channelid) return message.reply({ content: "現在音楽を再生していません..." });
-        if (!clientdata.cacheis) server.ytstream.destroy(); //ytdlストリームの存在を確認し、切断
-        server.connection.destroy();
-        server.playing = null;
+        musicstop();
         message.reply(await videoembed("再生を停止しました！"));
         break;
       }
       case "skip": {
         if (server.playing != channelid) return message.reply({ content: "現在音楽を再生していません..." });
+        if (!plist[0]) return message.reply({
+          content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ"
+        });
         ytplay(guildid, channelid);
         message.reply(
-          await videoembed("次の曲の再生を始めます！: " + channeldata.playing + "番目！",
+          await videoembed("次の曲の再生を始めます！: " + channeldata.playing + "曲目",
             channeldata.plist[channeldata.playing])
         );
         break;
@@ -245,6 +253,7 @@ client.on(Events.MessageCreate, async message => {
         };
         if (server.playing == channelid) server.resource.volume.volume = volume / 100;
         channeldata.volume = volume;
+        console.log("音量が" + volume + "%になりました。")
         message.reply(await videoembed("音量を" + volume + "%にしました！"));
         break;
       }
@@ -305,17 +314,16 @@ const ytplay = async (guildid, voiceid) => {
   server.playing = voiceid;
   while (server.playing) {
     if (plist[0]) {
-      if (channeldata.repeat == 1) channeldata.playing += 1;
-      if (plist.length == channeldata.playing || !channeldata.playing) {
+      if (channeldata.repeat == 1) console.log("1曲リピートのため、トラック番号は同じままになります。");
+      if (plist.length == channeldata.playing) {
         channeldata.playing = 0;
-        if (channeldata.repeat == 0) { 
-          if (!clientdata.cacheis) server.ytstream.destroy(); //ytdlストリームの存在を確認し、切断
-          server.connection.destroy();
-          server.playing = null;
+        console.log("リピートにより数字が0に戻されました。");
+        if (channeldata.repeat == 0) {
+          musicstop();
           break;
         };
       };
-    };
+    } else musicstop();
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
       if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
@@ -341,8 +349,9 @@ const ytplay = async (guildid, voiceid) => {
       server.connection.subscribe(player);
       server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true });
       server.resource.volume.setVolume(channeldata.volume / 100);
-
-      player.play(server.resource); //再生
+      player.play(server.resource);
+      console.log("再生が開始しました。: " + clientdata.ytdt[plist[channeldata.playing].url].title + "\n" +
+        "音量は" + (channeldata.volume) + "%です。");
       await entersState(player, AudioPlayerStatus.Playing);
       await entersState(player, AudioPlayerStatus.Idle);
       continue;
@@ -356,5 +365,12 @@ const ytplay = async (guildid, voiceid) => {
       break;
     };
   };
+};
+const musicstop = () => {
+  const server = temp[guildid];
+  if (!clientdata.cacheis) server.ytstream.destroy();
+  server.connection.destroy();
+  server.playing = null;
+  console.log("再生の停止");
 };
 client.login(process.env.token);
