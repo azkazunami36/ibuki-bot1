@@ -227,7 +227,7 @@ client.on(Events.MessageCreate, async message => {
       }
       case "stop": {
         if (server.playing != channelid) return message.reply({ content: "現在音楽を再生していません..." });
-        musicstop();
+        musicstop(guildid);
         message.reply(await videoembed("再生を停止しました！"));
         break;
       }
@@ -297,9 +297,14 @@ client.on(Events.MessageCreate, async message => {
       case "list": {
         if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
         const number = Number(subcontent);
-        if (number > plist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
-        const data = jsonRebuild(plist[number - 1]);
-        message.reply(await videoembed("その番号にはこの曲が入っています！", data));
+        if (number > plist.length || number < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        if (number) {
+          const data = jsonRebuild(plist[number - 1]);
+          message.reply(await videoembed("その番号にはこの曲が入っています！", data));
+        } else {
+          const data = jsonRebuild(plist[channeldata.playing]);
+          message.reply(await videoembed((channeldata.playing + 1) + "番の曲を再生しています！", data));
+        };
         break;
       }
     };
@@ -319,11 +324,11 @@ const ytplay = async (guildid, voiceid) => {
         channeldata.playing = 0;
         console.log("リピートにより数字が0に戻されました。");
         if (channeldata.repeat == 0) {
-          musicstop();
+          musicstop(guildid);
           break;
         };
       };
-    } else musicstop();
+    } else musicstop(guildid);
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
       if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
@@ -366,7 +371,7 @@ const ytplay = async (guildid, voiceid) => {
     };
   };
 };
-const musicstop = () => {
+const musicstop = guildid => {
   const server = temp[guildid];
   if (!clientdata.cacheis) server.ytstream.destroy();
   server.connection.destroy();
