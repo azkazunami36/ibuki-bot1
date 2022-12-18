@@ -15,10 +15,10 @@ export const timeString = async seconds => {
 /**
  * 初期化します。
  * ```js
- * init = i => { if (!i) = {}; };
+ * init = i => { if (!i) = {}; return i; };
  * ```
  */
-export const init = i => { if (!i) i = {}; };
+export const init = i => { if (!i) i = {}; return i; };
 /**
  * jsonデータを入力をもとにコピーを作成する
  * @param {*} j jsonデータを入力
@@ -62,7 +62,7 @@ export const jsonload = () => {
             res.on("data", chunk => { data += chunk; });
             res.on("end", () => { resolve(JSON.parse(data)); });
         });
-        req.write(JSON.stringify(["music_bot"]));
+        req.write(JSON.stringify(["music_botv2"]));
         req.on("error", reject);
         req.end();
     });
@@ -79,7 +79,7 @@ export const savejson = async j => {
             headers: { "Content-Type": "text/plain;charset=utf-8" }
         });
         req.on("response", resolve);
-        req.write(JSON.stringify(["music_bot", j]));
+        req.write(JSON.stringify(["music_botv2", j]));
         req.on("error", reject);
         req.end();
     });

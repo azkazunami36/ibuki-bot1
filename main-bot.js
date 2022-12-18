@@ -1,11 +1,10 @@
-const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require("discord.js");
+const { Client, GatewayIntentBits, Partials, Events, EmbedBuilder } = require("discord.js");
 const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require("@discordjs/voice");
 const ytdl = require("ytdl-core");
 const fs = require("fs");
 const { timeString, init, jsonRebuild, jsonload, savejson, videoembed } = require("./func");
 require("dotenv").config();
 const { decycle } = require("json-cyclic");
-const config = { prefix: "voice!" };
 const client = new Client({
   partials: [
     Partials.Channel,
@@ -35,7 +34,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.MessageContent
   ]
-}); //クライアント
+});
 let voice = {
   server: {},
   youtubecache: {},
@@ -64,15 +63,16 @@ let voice = {
 
 const clientdata = {};
 const temp = {};
+const prefix = "voice!";
 clientdata.cacheis = true;
 
-client.on("ready", async () => {
+client.on(Events.ClientReady, async () => {
   console.log("準備おっけい！");
   jsonload();
 });
-client.on("messageCreate", async message => {
+client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
-  if (message.content.startsWith(config.prefix)) {
+  if (message.content.startsWith(prefix)) {
     const content = message.content;
     const guildid = message.guild.id;
     const channelid = message.member.voice.channel.id;
@@ -85,18 +85,22 @@ client.on("messageCreate", async message => {
       content: "ボイスチャットに参加していないようです...\n" +
         "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
     });
-    console.log([content, guildid, channelid, userid, reply, voiceAdapterCreator, command, subcontent]);
-    init(temp[guildid]);
-    const server = temp[guildid];
-    init(server[channelid]);
-    const voice = server[channelid];
+    console.log({
+      content: content,
+      guildid: guildid,
+      channelid: channelid,
+      userid: userid,
+      reply: reply,
+      voiceAdapterCreator: voiceAdapterCreator,
+      command: command,
+      subcontent: subcontent
+    });
+    const server = init(temp[guildid]);
     init(clientdata.glist);
-    init(clientdata.glist[guildid]);
-    const guilddata = clientdata.glist[guildid];
+    const guilddata = init(clientdata.glist[guildid]);
     init(guilddata.chlist);
-    init(guilddata.chlist[channelid]);
-    const channeldata = guilddata.chlist[channelid];
-    init(channeldata.plist);
+    const channeldata = init(guilddata.chlist[channelid]);
+    const plist = init(channeldata.plist);
     client.channels.fetch(channelid)
       .then(channel => channeldata.chname = channel.name);
     switch (command) {
@@ -116,7 +120,7 @@ client.on("messageCreate", async message => {
           await ytdl.getInfo(data)
             .then(info => clientdata.ytdt[videoid] = info.videoDetails);
         botStatusSet();
-        channeldata.plist.push({ url: videoid, user: userid, data: clientdata.ytdt[videoid] });
+        plist.push({ url: videoid, user: userid, data: clientdata.ytdt[videoid] });
         if (clientdata.cacheis) {
           if (!fs.existsSync("ytaudio")) fs.mkdirSync("ytaudio");
           if (!fs.existsSync("ytaudio/" + videoid + ".mp3"))
@@ -138,7 +142,7 @@ client.on("messageCreate", async message => {
           return reply({
             content: "既に他のボイスチャットで再生しています..."
           });
-        if (!channeldata.playlist[0]) return reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
         server.connection = joinVoiceChannel({ //接続
           guildId: guildid,
           channelId: channelid,
@@ -146,7 +150,7 @@ client.on("messageCreate", async message => {
           selfDeaf: true
         });
         ytplay(guildid, channelid);
-        reply(await videoembed("再生を始めます！", voice.playing));
+        reply(await videoembed("再生を始めます！", channeldata.plist[channeldata.playing]));
         break;
       }
       case "stop": {
@@ -160,7 +164,7 @@ client.on("messageCreate", async message => {
       case "skip": {
         if (server.playing != channelid) return reply({ content: "現在音楽を再生していません..." });
         ytplay(guildid, channelid);
-        reply((await videoembed("次の曲の再生を始めます！", voice.playing)));
+        reply((await videoembed("次の曲の再生を始めます！", channeldata.plist[channeldata.playing])));
         break;
       }
       case "volume": {
@@ -172,7 +176,7 @@ client.on("messageCreate", async message => {
           volume = 100;
         };
         if (server.playing == channelid) server.resource.volume.volume = volume / 100;
-        voice.volume = volume;
+        channeldata.volume = volume;
         reply(await videoembed("音量を" + volume + "%にしました！"));
         break;
       }
@@ -192,23 +196,23 @@ client.on("messageCreate", async message => {
         break;
       }
       case "remove": {
-        if (!channeldata.playlist[0]) return reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
         const number = Number(subcontent);
-        if (number > channeldata.playlist.length || number < 0) return reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        if (number > plist.length || number < 0) return reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         if (number == 0) {
-          channeldata.playlist.splice(0);
+          plist.splice(0);
           reply(await videoembed("全ての曲を削除しました！"));
         } else {
-          let data = JSON.parse(JSON.stringify(channeldata.playlist[number - 1]));
-          server.channellist[channelid].playlist.splice((number - 1), 1);
+          let data = jsonRebuild(plist[number - 1]);
+          plist.splice((number - 1), 1);
           reply(await videoembed("削除しました～", data));
         };
         break;
       }
       case "list": {
-        if (!channeldata.playlist[0]) return reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
         const number = Number(subcontent);
-        if (number > channeldata.playlist.length || number < 0) return reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        if (number > plist.length || number < 0) return reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         break;
       }
     };
@@ -219,24 +223,22 @@ client.on("messageCreate", async message => {
 const ytplay = async (guildid, voiceid) => {
   try {
     const server = temp[guildid];
-    const voice = server[channelid];
     const guilddata = clientdata.glist[guildid];
     const channeldata = guilddata.chlist[voiceid];
+    const plist = channeldata.plist;
     server.playing = voiceid;
     while (server.playing) {
-      if (channeldata.plist[0]) {
-        server[voiceid].playing = jsonRebuild(channeldata.plist[0]);
-        if (server[voiceid].repeat != 2) server.channellist[voiceid].playlist.shift();
-        if (server[voiceid].repeat == 1) server.channellist[voiceid].playlist.push(JSON.parse(JSON.stringify(server.channellist[voiceid].playing)));
+      if (plist[0]) {
+        channeldata.playing += 1;
+        if (plist.length == channeldata.playing) channeldata.playing = 0;
       };
       savejson();
-
-      if (voice.default.audiocache) { //音声ファイルをキャッシュするかどうかを確認してから
-        if (!fs.existsSync("ytaudio/" + server.channellist[voiceid].playing.url + ".mp3")) continue;
-        server.ytstream = "ytaudio/" + server.channellist[voiceid].playing.url + ".mp3"; //ファイルパスを取得
+      if (clientdata.cacheis) {
+        if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
+        server.ytstream = "ytaudio/" + plist[channeldata.playing].url + ".mp3"; //ファイルパスを取得
       } else {
         try {
-          server.ytstream = ytdl(server.channellist[voiceid].playing.url, {  //ytdlでリアルタイムダウンロード
+          server.ytstream = ytdl(channeldata.playing.url, {  //ytdlでリアルタイムダウンロード
             filter: format => format.audioCodec === "opus" && format.container === "webm", //取り出すデータ
             quality: "highest", //品質
             highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
@@ -251,14 +253,14 @@ const ytplay = async (guildid, voiceid) => {
         };
       };
       try {
-        const player = createAudioPlayer(); //多分音声を再生するためのもの
-        server.connection.subscribe(player); //connectionにplayerを登録？
-        server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true }); //ytdlのストリームで取得できた音声ファイルを読み込む
-        server.resource.volume.setVolume(server.channellist[voiceid].volume / 100); //音量調節
+        const player = createAudioPlayer();
+        server.connection.subscribe(player);
+        server.resource = createAudioResource(server.ytstream, { inputType: StreamType.WebmOpus, inlineVolume: true }); 
+        server.resource.volume.setVolume(channeldata.volume / 100);
 
         player.play(server.resource); //再生
-        await entersState(player, AudioPlayerStatus.Playing); //再生が始まるまでawaitで待機
-        await entersState(player, AudioPlayerStatus.Idle); //再生リソースがなくなる(再生が終わる)まで待機
+        await entersState(player, AudioPlayerStatus.Playing);
+        await entersState(player, AudioPlayerStatus.Idle);
         savejson();
         continue;
       } catch (e) {
@@ -280,7 +282,7 @@ const ytplay = async (guildid, voiceid) => {
 const botStatusSet = async () => {
   client.user.setPresence({
     activities: [{
-      name: "現在" + Object.keys(voice.youtubecache).length + "曲が読み込まれてますっ"
+      name: "現在" + Object.keys(clientdata.ytdt).length + "曲が読み込まれてますっ"
     }],
     status: "online"
   });
