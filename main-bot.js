@@ -249,11 +249,15 @@ client.on(Events.MessageCreate, async message => {
         break;
       }
       case "repeat": {
-        switch (subcontent) {
-          case "repeat": channeldata.repeat = 1; break;
-          case "one-repeat": channeldata.repeat = 2; break;
-          default: channeldata.repeat = 0; break;
+        const pattern = {
+          "off": 0,
+          "repeat": 1,
+          "one-repeat": 2,
+          "0": 0,
+          "1": 1,
+          "2": 2
         };
+        channeldata.repeat = pattern[subcontent] || 0;
         let repeat = "";
         switch (channeldata.repeat) {
           case 0: repeat = "オフ"; break;
@@ -301,8 +305,16 @@ const ytplay = async (guildid, voiceid) => {
   server.playing = voiceid;
   while (server.playing) {
     if (plist[0]) {
-      channeldata.playing += 1;
-      if (plist.length == channeldata.playing || !channeldata.playing) channeldata.playing = 0;
+      if (channeldata.repeat == 1) channeldata.playing += 1;
+      if (plist.length == channeldata.playing || !channeldata.playing) {
+        channeldata.playing = 0;
+        if (channeldata.repeat == 0) { 
+          if (!clientdata.cacheis) server.ytstream.destroy(); //ytdlストリームの存在を確認し、切断
+          server.connection.destroy();
+          server.playing = null;
+          break;
+        };
+      };
     };
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
