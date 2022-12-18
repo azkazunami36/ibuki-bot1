@@ -318,19 +318,6 @@ const ytplay = async (guildid, voiceid) => {
   const plist = channeldata.plist;
   server.playing = voiceid;
   while (server.playing) {
-    if (plist[0]) {
-      if (channeldata.repeat == 2) console.log("1曲リピートのため、トラック番号は同じままになります。");
-      if (channeldata.repeat == 1) channeldata.playing += 1;
-      if (plist.length == channeldata.playing) {
-        channeldata.playing = 0;
-        console.log("リピートにより数字が0に戻されました。");
-        if (channeldata.repeat == 0) {
-          musicstop(guildid);
-          console.log("リピートオフのため、そのまま停止をします。")
-          break;
-        };
-      };
-    } else musicstop(guildid);
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
       if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
@@ -361,6 +348,22 @@ const ytplay = async (guildid, voiceid) => {
         "音量は" + (channeldata.volume) + "%です。");
       await entersState(player, AudioPlayerStatus.Playing);
       await entersState(player, AudioPlayerStatus.Idle);
+      if (plist[0]) {
+        if (channeldata.repeat == 2) console.log("1曲リピートのため、トラック番号は同じままになります。");
+        if (channeldata.repeat == 1) {
+          channeldata.playing += 1;
+          console.log("リピートにより数字に１足しました。");
+        };
+        if (plist.length == channeldata.playing) {
+          channeldata.playing = 0;
+          console.log("リピートにより数字が0に戻されました。");
+          if (channeldata.repeat == 0) {
+            musicstop(guildid);
+            console.log("リピートオフのため、そのまま停止をします。")
+            break;
+          };
+        };
+      } else musicstop(guildid);
       continue;
     } catch (e) {
       console.error(e);
