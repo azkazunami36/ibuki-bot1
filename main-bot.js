@@ -445,40 +445,70 @@ client.on(Events.MessageCreate, async message => {
                 name: client.user.username,
                 iconURL: client.user.avatarURL()
               })
-              .addFields({
-                name: "コマンド一覧",
-                value: "" +
-                  "`" + prefix + "add [url]` VCキューに曲を追加します。\n" +
-                  "`" + prefix + "play` キュー内の曲を再生します。\n" +
-                  "`" + prefix + "stop` 曲の再生を停止します。\n" +
-                  "`" + prefix + "skip` 次の曲へすぐに切り替えます。\n" +
-                  "`" + prefix + "volume [num]` 音量を調節します。\n" +
-                  "`" + prefix + "repeat [0, 1, 2]` リピートパターンを切り替えます。\n" +
-                  "`" + prefix + "remove [num]` 指定した曲を削除します。\n" +
-                  "`" + prefix + "list [num]` 指定した曲の詳細が確認できます。\n" +
-                  "`" + prefix + "splist [name]` キュー内の曲を保存します。\n" +
-                  "`" + prefix + "lplist [num]` 保存したリストをキューに復元します。\n" +
-                  "`" + prefix + "plist [page]` 保存したリストを一覧で表示します。\n" +
-                  "`" + prefix + "pubplist [page]` パブプレを一覧で表示します。\n" +
-                  "`" + prefix + "publplist [num]` パブプレからキューに復元します。\n" +
-                  "`" + prefix + "help [command]` コマンドの詳細ヘルプを表示します。\n" +
-                  ""
-              })
-              .addFields({
-                name: "概要",
-                value: "このbotはYouTubeから曲を入手する音楽botです。\n" +
-                  "キューや再生リスト、パプリック・プレイリスト(略:パブプレ)機能を利用できる、\n" +
-                  "多機能音楽botです。\n" +
-                  "もしもバグが発生してしまった場合、GitHubから\n" +
-                  "[ibuki-bot2](" + repositoryLink + ")にアクセスし、\n" +
-                  "Issuesにエラー内容を書き込んでいただけると、ありがたいです。\n" +
-                  "GitHubが分からない場合は、あんこかずなみ36#5008にDMでお知らせください！"
-              })
+              .addFields(
+                {
+                  name: "コマンド一覧",
+                  value: "" +
+                    "`" + prefix + "add [url]` VCキューに曲を追加します。\n" +
+                    "`" + prefix + "play` キュー内の曲を再生します。\n" +
+                    "`" + prefix + "stop` 曲の再生を停止します。\n" +
+                    "`" + prefix + "skip` 次の曲へすぐに切り替えます。\n" +
+                    "`" + prefix + "volume [num]` 音量を調節します。\n" +
+                    "`" + prefix + "repeat [0, 1, 2]` リピートパターンを切り替えます。\n" +
+                    "`" + prefix + "remove [num]` 指定した曲を削除します。\n" +
+                    "`" + prefix + "list [num]` 指定した曲の詳細が確認できます。\n" +
+                    "`" + prefix + "splist [name]` キュー内の曲を保存します。\n" +
+                    "`" + prefix + "lplist [num]` 保存したリストをキューに復元します。\n" +
+                    "`" + prefix + "plist [page]` 保存したリストを一覧で表示します。\n" +
+                    "`" + prefix + "pubplist [page]` パブプレを一覧で表示します。\n" +
+                    "`" + prefix + "publplist [num]` パブプレからキューに復元します。\n" +
+                    "`" + prefix + "help [command]` コマンドの詳細ヘルプを表示します。\n" +
+                    ""
+                },
+                {
+                  name: "概要",
+                  value: "このbotはYouTubeから曲を入手する音楽botです。\n" +
+                    "キューや再生リスト、パプリック・プレイリスト(略:パブプレ)機能を\n" +
+                    "利用できる、多機能音楽botです。\n" +
+                    "もしもバグが発生してしまった場合、\n" +
+                    "GitHubから[ibuki-bot2](" + repositoryLink + ")にアクセスし、\n" +
+                    "Issuesにエラー内容を書き込んでいただけると、ありがたいです。\n" +
+                    "GitHubが分からない場合は、\n" +
+                    "あんこかずなみ36#5008にDMでお知らせください！\n" +
+                    "botの詳細の使い方は、`" + prefix + "help add`等を使用するか、\n" +
+                    "ヘルプページにアクセスしてください！"
+                }
+              )
           ]
         })
         else {
           switch (subcontent) {
             case "add": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("addコマンドのヘルプ")
+                    .setDescription("追加コマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "このbotにはキュー機能が搭載されています。\n" +
+                          "そのキューに追加するには、`voice!add [url]`を入力します。\n" +
+                          "[url]の部分には、\n" +
+                          "YouTubeのURLとVideo IDを利用することが出来ます。\n" +
+                          "キューには実質無制限に追加することができ、" +
+                          "そのキューのデータには、管理人とユーザー自身が操作出来ます。\n" +
+                          "\n例: voice!add [https://youtu.be/srYREQyMzOo](https://youtu.be/srYREQyMzOo)\n" +
+                          "この例にはP丸様。の\n" +
+                          "可愛くてごめん／P丸様。【歌ってみた】を使用しています"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "play": {
@@ -534,11 +564,11 @@ const ytplay = async (guildid, voiceid) => {
   const channeldata = guilddata.chlist[voiceid];
   const plist = channeldata.plist;
   server.playing = voiceid;
-  if (plist.length < channeldata.playing) {
-    console.log("再生リストの指定番号がリスト数を超過していたため、最後の曲を指定しました。元番号: " + channeldata.playing);
-    channeldata.playing = plist.length - 1;
-  };
   while (server.playing) {
+    if ((plist.length - 1) < channeldata.playing) {
+      console.log("再生リストの指定番号がリスト数を超過していたため、最後の曲を指定しました。元番号: " + channeldata.playing);
+      channeldata.playing = plist.length - 1;
+    };
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
       if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
