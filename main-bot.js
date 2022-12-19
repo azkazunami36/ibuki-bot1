@@ -54,12 +54,13 @@ const videoembed = async (content, data) => {
   if (data) {
     const { EmbedBuilder } = require("discord.js");
     const user = (await client.users.fetch(data.user));
+    const thumbnails = clientdata.ytdt[data.url].thumbnails;
     const embed = new EmbedBuilder()
       .setTitle("**" + clientdata.ytdt[data.url].title + "**")
       .setDescription("再生時間: " + (await timeString(clientdata.ytdt[data.url].lengthSeconds)))
       .setAuthor({ name: user.username, iconURL: user.avatarURL() })
       .setURL("https://youtu.be/" + data.url)
-      .setThumbnail("https://i.ytimg.com/vi/" + data.url + "/hqdefault.jpg");
+      .setThumbnail(thumbnails[thumbnails.length - 1].url);
     outdata.embeds = [embed];
   };
   return outdata;
