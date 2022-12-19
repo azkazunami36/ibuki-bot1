@@ -380,7 +380,7 @@ client.on(Events.MessageCreate, async message => {
         });
         channeldata.plist = jsonRebuild(clientdata.userdata[userid].myplist[subcontent]);
         message.reply({
-          content: "再生リストを復元しました！\n`" +
+          content: "再生リストを復元しました！\n" +
             channeldata.plist.length + "曲の再生リストです！お楽しみください！"
         });
         break;
@@ -426,7 +426,7 @@ client.on(Events.MessageCreate, async message => {
         });
         channeldata.plist = jsonRebuild(clientdata.pubplist[subcontent]);
         message.reply({
-          content: "再生リストを復元しました！\n`" +
+          content: "再生リストを復元しました！\n" +
             channeldata.plist.length + "曲の再生リストです！お楽しみください！"
         });
         break;
