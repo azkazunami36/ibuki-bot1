@@ -2,6 +2,7 @@ const { Client, GatewayIntentBits, Partials, Events, EmbedBuilder } = require("d
 const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require("@discordjs/voice");
 const ytdl = require("ytdl-core");
 const fs = require("fs");
+const readline = require("readline");
 require("dotenv").config();
 const client = new Client({
   partials: [
@@ -104,6 +105,18 @@ const jsonload = () => {
   });
 };
 /**
+ * ユーザーからの文字入力を受けつける。
+ * @param {string} text 
+ * @returns 入力された文字列を返答する。
+ */
+const questions = text => {
+  const interface = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+  return new Promise(resolve => interface.question(text, answer => { resolve(answer); interface.close(); }));
+};
+/**
 * data-serverにmusic_botのjsonデータを格納する
 * @param {*} j 格納するjsonを入力
 */
@@ -121,12 +134,27 @@ const savejson = async (j, name) => {
   });
 };
 let clientdata;
-jsonload().then(data => clientdata = JSON.parse(data));
+jsonload().then(async data => {
+  clientdata = JSON.parse(data);
+  if (!clientdata.userid) {
+    console.info("初回起動のため、あなたのDiscordのユーザーIDを入力する必要があります。");
+    clientdata.userid = await questions("ユーザーIDを入力してください。> ");
+    savejson(clientdata, "music_botv2");
+    console.info("設定が完了しました！音楽botをお楽しみください！\n" +
+      "もしも打ち間違えた場合、userid欄を削除することで再度入力することができます。");
+  };
+  client.login(process.env.token);
+});
 const temp = {};
 const prefix = "voice!";
 client.on(Events.ClientReady, async () => {
-  console.log("準備おっけい！");
-  clientdata.cacheis = true;
+  if (!clientdata.cacheis) clientdata.cacheis = true;
+  if (!clientdata.glist) clientdata.glist = {};
+  if (!clientdata.ytdt) clientdata.ytdt = {};
+  if (!clientdata.pubplist) clientdata.pubplist = {};
+  if (!clientdata.userdata) clientdata.userdata = {};
+  console.log("botの準備が完了しました！");
+  savejson(clientdata, "music_botv2");
 });
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
@@ -155,8 +183,8 @@ client.on(Events.MessageCreate, async message => {
     });
     if (!temp[guildid]) temp[guildid] = {};
     const server = temp[guildid];
-    if (!clientdata.glist) clientdata.glist = {};
-    if (!clientdata.ytdt) clientdata.ytdt = {};
+    if (!clientdata.userdata[userid]) clientdata.userdata[userid] = {};
+    if (!clientdata.userdata[userid].myplist) clientdata.userdata[userid].myplist = {};
     if (!clientdata.glist[guildid]) clientdata.glist[guildid] = {};
     const guilddata = clientdata.glist[guildid];
     if (!guilddata.chlist) guilddata.chlist = {};
@@ -277,25 +305,25 @@ client.on(Events.MessageCreate, async message => {
         break;
       }
       case "remove": {
-        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
         const number = Number(subcontent);
         if (number > plist.length || number < 0) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         if (number == 0) {
           plist.splice(0);
           message.reply(await videoembed("全ての曲を削除しました！"));
-        } else if (number != 0) {
-          let data = jsonRebuild(plist[number - 1]);
-          plist.splice((number - 1), 1);
-          message.reply(await videoembed("削除しました～", data));
         } else if (!number) {
           let data = jsonRebuild(plist[channeldata.playing]);
           plist.splice((channeldata.playing), 1);
+          message.reply(await videoembed("削除しました～", data));
+        } else if (number != 0) {
+          let data = jsonRebuild(plist[number - 1]);
+          plist.splice((number - 1), 1);
           message.reply(await videoembed("削除しました～", data));
         };
         break;
       }
       case "list": {
-        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + config.prefix + "add [URL]`を使用して追加してくださいっ" }); //再生リストがない場合
+        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
         const number = Number(subcontent);
         if (number > plist.length || number < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         if (number) {
@@ -305,6 +333,53 @@ client.on(Events.MessageCreate, async message => {
           const data = jsonRebuild(plist[channeldata.playing]);
           message.reply(await videoembed((channeldata.playing + 1) + "番の曲を再生しています！", data));
         };
+        break;
+      }
+      case "splist": {
+        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
+        if (!subcontent) return message.reply({ content: "`" + prefix + "splist [name]`で名前を指定してくださいっ" });
+        if (subcontent.length > 16) return message.reply({ content: "名前は16文字までです。もう一度名前を決めましょう！" });
+        clientdata.userdata[userid].myplist[subcontent] = jsonRebuild(plist);
+        message.reply({
+          content: "再生リストを保存しました！\n`" +
+            prefix + "lplist " + subcontent + "`で再生リストの読み込みができます！"
+        });
+        break;
+      }
+      case "lplist": {
+        if (!subcontent) return message.reply({ content: "`" + prefix + "lplist [name]`で名前を指定してくださいっ" });
+        if (!clientdata.userdata[userid].myplist[subcontent]) return message.reply({
+          content: "そのような再生リストは確認できませんでした...再度試して見てくださいっ"
+        });
+        channeldata.plist = jsonRebuild(clientdata.userdata[userid].myplist[subcontent]);
+        message.reply({
+          content: "再生リストを復元しました！\n`" +
+            channeldata.plist.length + "曲の再生リストです！お楽しみください！"
+        });
+        break;
+      }
+      case "pubsplist": {
+        if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
+        if (!subcontent) return message.reply({ content: "`" + prefix + "pubsplist [name]`で名前を指定してくださいっ" });
+        if (clientdata.userid != userid) return message.reply({ content: "あなたはパブリック・プレイリストを操作することは出来ません..." });
+        if (subcontent.length > 16) return message.reply({ content: "名前は16文字までです。もう一度名前を決めましょう！" });
+        clientdata.pubplist[subcontent] = jsonRebuild(plist);
+        message.reply({
+          content: "再生リストを保存しました！\n`" +
+            prefix + "publplist " + subcontent + "`で再生リストの読み込みができます！"
+        });
+        break;
+      }
+      case "publplist": {
+        if (!subcontent) return message.reply({ content: "`" + prefix + "publplist [name]`で名前を指定してくださいっ" });
+        if (!clientdata.pubplist[subcontent]) return message.reply({
+          content: "そのようなパブリック・プレイリストは確認できませんでした...再度試して見てくださいっ"
+        });
+        channeldata.plist = jsonRebuild(clientdata.pubplist[subcontent]);
+        message.reply({
+          content: "再生リストを復元しました！\n`" +
+            channeldata.plist.length + "曲の再生リストです！お楽しみください！"
+        });
         break;
       }
     };
@@ -383,4 +458,3 @@ const musicstop = guildid => {
   server.playing = null;
   console.log("再生の停止");
 };
-client.login(process.env.token);
