@@ -52,7 +52,6 @@ const videoembed = async (content, data) => {
   const outdata = {};
   outdata.content = content;
   if (data) {
-    const { EmbedBuilder } = require("discord.js");
     const user = (await client.users.fetch(data.user));
     const thumbnails = clientdata.ytdt[data.url].thumbnails;
     const embed = new EmbedBuilder()
@@ -149,7 +148,7 @@ jsonload().then(async data => {
 const temp = {};
 const prefix = "voice!";
 client.on(Events.ClientReady, async () => {
-  if (!clientdata.cacheis) clientdata.cacheis = true;
+  if (clientdata.cacheis == undefined) clientdata.cacheis = true;
   if (!clientdata.glist) clientdata.glist = {};
   if (!clientdata.ytdt) clientdata.ytdt = {};
   if (!clientdata.pubplist) clientdata.pubplist = {};
@@ -246,6 +245,11 @@ client.on(Events.MessageCreate, async message => {
           channelId: channelid,
           adapterCreator: voiceAdapterCreator,
           selfDeaf: true
+        });
+        server.connection.on("error", e => {
+          console.log("予想外の通信エラーが発生しました。", e,
+            "\nこのエラーが何か具体的に記されている場合、エラーをGiuHubのIssuesにお送りください。");
+          musicstop();
         });
         ytplay(guildid, channelid);
         message.reply(
@@ -359,6 +363,28 @@ client.on(Events.MessageCreate, async message => {
         });
         break;
       }
+      case "plist": {
+        const myplist = clientdata.userdata[userid].myplist;
+        const mpl = Object.keys(myplist);
+        if (!mpl[0]) return message.reply({ content: "再生リストが見つかりません...`" + prefix + "splist [name]`で追加してくださいっ" });
+        const page = Number(subcontent) || 1;
+        let data = [[]];
+        for (let i = 0; i != mpl.length; i++) {
+          if (data[data.length - 1].length > 4) data.push([]);
+          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。" });
+        };
+        if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        message.reply({
+          content: "再生リスト一覧です。" + page + "/" + data.length,
+          embeds: [
+            new EmbedBuilder()
+              .setDescription("あなたが作成した再生リストを一覧で表示しています。")
+              .setAuthor({ name: "一覧" + "[" + page + "/" + data.length + "]", iconURL: message.author.avatarURL() })
+              .addFields(data[page - 1])
+          ]
+        });
+        break;
+      }
       case "pubsplist": {
         if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
         if (!subcontent) return message.reply({ content: "`" + prefix + "pubsplist [name]`で名前を指定してくださいっ" });
@@ -383,6 +409,31 @@ client.on(Events.MessageCreate, async message => {
         });
         break;
       }
+      case "pubplist": {
+        const myplist = clientdata.pubplist;
+        const mpl = Object.keys(myplist);
+        if (!mpl[0]) return message.reply({
+          content: "パプリック・プレイリストが設定されていません...\n" +
+            "管理人がパプリック・プレイリストを設定するまで、しばらくお待ちください..."
+        });
+        const page = Number(subcontent) || 1;
+        let data = [[]];
+        for (let i = 0; i != mpl.length; i++) {
+          if (data[data.length - 1].length > 4) data.push([]);
+          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。" });
+        };
+        if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        message.reply({
+          content: "プレイリスト一覧です。" + page + "/" + data.length,
+          embeds: [
+            new EmbedBuilder()
+              .setDescription("パプリック・プレイリストを一覧で表示しています。")
+              .setAuthor({ name: "一覧" + "[" + page + "/" + data.length + "]", iconURL: client.user.avatarURL() })
+              .addFields(data[page - 1])
+          ]
+        });
+        break;
+      }
     };
     savejson(clientdata, "music_botv2");
   };
@@ -393,24 +444,26 @@ const ytplay = async (guildid, voiceid) => {
   const channeldata = guilddata.chlist[voiceid];
   const plist = channeldata.plist;
   server.playing = voiceid;
+  if (plist.length < channeldata.playing) {
+    console.log("再生リストの指定番号がリスト数を超過していたため、最後の曲を指定しました。元番号: " + channeldata.playing);
+    channeldata.playing = plist.length - 1;
+  };
   while (server.playing) {
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
       if (!fs.existsSync("ytaudio/" + plist[channeldata.playing].url + ".mp3")) continue;
-      server.ytstream = "ytaudio/" + plist[channeldata.playing].url + ".mp3"; //ファイルパスを取得
+      server.ytstream = "ytaudio/" + plist[channeldata.playing].url + ".mp3";
     } else {
       try {
-        server.ytstream = ytdl(channeldata.playing.url, {  //ytdlでリアルタイムダウンロード
-          filter: format => format.audioCodec === "opus" && format.container === "webm", //取り出すデータ
-          quality: "highest", //品質
-          highWaterMark: 32 * 1024 * 1024, //メモリキャッシュする量 
+        console.log("キャッシュが無効なため、ytdlから直接音声データを取得しています。");
+        server.ytstream = ytdl(plist[channeldata.playing].url, {
+          filter: "audioonly",
+          //filter: format => format.audioCodec === "opus" && format.container === "webm"
+          quality: "highest", highWaterMark: 1024 * 1024 * 1024 //1GiBのバッファg
         });
       } catch (e) {
         console.error(e);
-        console.log("ytdlの処理中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-        console.log("ストリーム終了処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
-        server.playing = null;
-        server.ytstream.destroy();
+        musicstop(guildid);
         break;
       };
     };
@@ -443,19 +496,18 @@ const ytplay = async (guildid, voiceid) => {
       continue;
     } catch (e) {
       console.error(e);
-      console.log("再生中にエラーが発生しました。エラー内容をあんこかずなみ36#5008にお送りください。");
-      console.log("ボイスチャット切断処理をします。この処理でまたエラーが発生する場合がありますが、そのエラー内容も同時に添付してください。");
-      server.playing = null;
-      server.ytstream.destroy();
-      server.connection.destroy();
+      musicstop(guildid);
       break;
     };
   };
 };
 const musicstop = guildid => {
   const server = temp[guildid];
-  if (!clientdata.cacheis) server.ytstream.destroy();
-  server.connection.destroy();
-  server.playing = null;
+  try { if (!clientdata.cacheis) server.ytstream.destroy(); }
+  catch (e) { console.log("ytstreamの切断に失敗。", e); };
+  try { server.connection.destroy(); }
+  catch (e) { console.log("VoiceChatの切断に失敗。", e); };
+  try { server.playing = null; }
+  catch (e) { console.log("playingのステータス変更に失敗: ", e); };
   console.log("再生の停止");
 };
