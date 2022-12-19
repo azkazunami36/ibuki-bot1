@@ -159,6 +159,16 @@ client.on(Events.ClientReady, async () => {
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot) return;
   if (message.content.startsWith(prefix)) {
+    try {
+      if (!message.member.voice.channel.id) return message.reply({
+        content: "ボイスチャットに参加していないようです...\n" +
+          "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
+      });
+    } catch (e) {
+      console.log(e)
+      return message.reply("VCに参加していないようです。\n" +
+        "VCに入ってからもう一度お試しください。");
+    };
     const content = message.content;
     const guildid = message.guild.id;
     const channelid = message.member.voice.channel.id;
@@ -166,10 +176,6 @@ client.on(Events.MessageCreate, async message => {
     const voiceAdapterCreator = message.guild.voiceAdapterCreator;
     const command = content.split(" ")[0].split("!")[1];
     const subcontent = content.split(" ")[1];
-    if (channelid == "null" || !channelid) return message.reply({
-      content: "ボイスチャットに参加していないようです...\n" +
-        "僕のbotはボイスチャットに参加しないと何もできない仕様なので、ご了承くださいm_ _m"
-    });
     console.log({
       content: content,
       guildid: guildid,
@@ -338,6 +344,22 @@ client.on(Events.MessageCreate, async message => {
           const data = jsonRebuild(plist[channeldata.playing]);
           message.reply(await videoembed((channeldata.playing + 1) + "番の曲を指定しています！", data));
         };
+        const page = Number(subcontent) || 1;
+        let data = [[]];
+        for (let i = 0; i != mpl.length; i++) {
+          if (data[data.length - 1].length > 4) data.push([]);
+          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。" });
+        };
+        if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        message.reply({
+          content: "プレイリスト一覧です。" + page + "/" + data.length,
+          embeds: [
+            new EmbedBuilder()
+              .setDescription("パプリック・プレイリストを一覧で表示しています。")
+              .setAuthor({ name: "一覧" + "[" + page + "/" + data.length + "]", iconURL: client.user.avatarURL() })
+              .addFields(data[page - 1])
+          ]
+        });
         break;
       }
       case "splist": {
@@ -500,7 +522,7 @@ client.on(Events.MessageCreate, async message => {
                           "そのキューに追加するには、`voice!add [url]`を入力します。\n" +
                           "[url]の部分には、\n" +
                           "YouTubeのURLとVideo IDを利用することが出来ます。\n" +
-                          "キューには実質無制限に追加することができ、" +
+                          "キューには実質無制限に追加することができ、\n" +
                           "そのキューのデータには、管理人とユーザー自身が操作出来ます。\n" +
                           "\n例: voice!add [https://youtu.be/srYREQyMzOo](https://youtu.be/srYREQyMzOo)\n" +
                           "この例にはP丸様。の\n" +
@@ -512,42 +534,315 @@ client.on(Events.MessageCreate, async message => {
               break;
             }
             case "play": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("playコマンドのヘルプ")
+                    .setDescription("再生コマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "キュー内に入っている曲を再生することができます。\n" +
+                          "キューについては、`voice!help add`を利用し参照してください。\n" +
+                          "今後再生コマンドには番号指定機能を追加するため、\n" +
+                          "その説明を記述します。\n" +
+                          "再生する際に、番号を使用してプレイリストの再生番号を\n" +
+                          "指定することができます。例: `voice!play 2`"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "stop": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("stopコマンドのヘルプ")
+                    .setDescription("停止コマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "再生を停止して、VCから切断することができます。\n" +
+                          "これと言って出来る機能はありませんが、`voice!stop`で可能です。"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "skip": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("skipコマンドのヘルプ")
+                    .setDescription("スキップコマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "現在再生している曲を停止し、すぐに\n" +
+                          "次の曲へ切り替えることが出来ます。\n" +
+                          "もしも１曲リピートがオンの場合、曲を切り替える事が出来ませんが、\n" +
+                          "いずれ可能になるよう、現在作業を行っていますので少々お待ちください。\n" +
+                          "リピートについては、`voice!help repeat`を利用し参照してください。"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "volume": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("volumeコマンドのヘルプ")
+                    .setDescription("音量コマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "このbotでは音量を変更することが可能です。\n" +
+                          "推奨値はながら操作などの低音量で1～5%、\n" +
+                          "通常通りの音量で楽しみたい場合は、50%がおすすめです。" +
+                          "例: `voice!volume 2.5` (小数点以下の指定も可能です。)"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "repeat": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("repeatコマンドのヘルプ")
+                    .setDescription("リピートコマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "このbotではリピート機能を使用することが可能です。\n" +
+                          "なし、リピート、1曲リピートの3パターンから選ぶことが可能です。\n" +
+                          "なしの場合、最後まで再生しきるとVC切断、\n" +
+                          "リピートの場合は、最後まで再生しきった場合に最初に戻り、\n" +
+                          "1曲リピートの場合常に同じ曲を再生し続けます。"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "remove": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("removeコマンドのヘルプ")
+                    .setDescription("削除コマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "キューに保存されている曲を指定し削除します。\n" +
+                          "キューについては`voice!help add`を利用し参照してください。\n" +
+                          "指定せずに削除をすると、内部に記録されたフォーカスに従い、\n" +
+                          "削除を行います。(再生中の場合は、その再生中の曲が削除されます。)\n" +
+                          "どこに曲が入っているか分からない場合、`voice!list`をご確認ください。\n" +
+                          "例: voice!remove 4"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "list": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("listコマンドのヘルプ")
+                    .setDescription("リストコマンドの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "キューに保存されている曲をリストとして表示します。\n" +
+                          "`list 番号`として入力すると、ページを切り替えることが出来ます。\n" +
+                          "例: voice!list 1"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "splist": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("splistコマンドのヘルプ")
+                    .setDescription("セーブプレイリストの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "キューに保存されている曲をマイ再生リストとし、" +
+                          "登録をすることが出来ます。\n" +
+                          "保存可能な個数は実質無限であり、同じ名前を指定すると\n" +
+                          "上書きをすることが出来ます。\n" +
+                          "マイ再生リストとは、あなただけが使用できる\n" +
+                          "保存可能な再生リスト機能です。\n" +
+                          "あなたの再生リストは管理者を除き、誰も見ることが出来ません。\n" +
+                          "例: voice!splist 保存用 (日本語を使用することが可能です。)"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "lplist": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("lplistコマンドのヘルプ")
+                    .setDescription("ロードプレイリストの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "マイ再生リストから名前を指定して、" +
+                          "キューに曲を復元することが出来ます。\n" +
+                          "マイ再生リストとは、あなただけが使用できる\n" +
+                          "保存可能な再生リスト機能です。\n" +
+                          "あなたの再生リストは管理者を除き、誰も見ることが出来ません。\n" +
+                          "例: voice!lplist 保存用 (日本語を使用することが可能です。)"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "plist": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("plistコマンドのヘルプ")
+                    .setDescription("プレイリストの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "マイ再生リストに登録済みのリストを一覧として表示します。\n" +
+                          "マイ再生リストとは、あなただけが使用できる\n" +
+                          "保存可能な再生リスト機能です。\n" +
+                          "あなたの再生リストは管理者を除き、誰も見ることが出来ません。\n" +
+                          "例: voice!plist 1"
+                      }
+                    )
+                ]
+              });
               break;
             }
-            case "publist": {
+            case "pubplist": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("pubplistコマンドのヘルプ")
+                    .setDescription("パブリック・プレイリストの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "パブリック・プレイリストに登録済みのリストを利用し、\n" +
+                          "キューに曲を復元することが出来ます。\n" +
+                          "パブリック・プレイリストとは、誰もがアクセス可能な\n" +
+                          "管理者が管理するプレイリストです。\n" +
+                          "管理者が追加や削除等をし、それを皆さんが利用することが出来ます。\n" +
+                          "例: voice!publplist 可愛くてごめんシリーズ"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "publplist": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("publplistコマンドのヘルプ")
+                    .setDescription("ロードパブリック・プレイリストの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "パブリック・プレイリストに登録済みのリストを、\n" +
+                          "一覧として表示します。\n" +
+                          "パブリック・プレイリストとは、誰もがアクセス可能な\n" +
+                          "管理者が管理するプレイリストです。\n" +
+                          "管理者が追加や削除等をし、それを皆さんが利用することが出来ます。\n" +
+                          "例: voice!pubplist 1"
+                      }
+                    )
+                ]
+              });
               break;
             }
             case "help": {
+              message.reply({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle("helpコマンドのヘルプ")
+                    .setDescription("ヘルプの使い方を紹介します。")
+                    .setAuthor({
+                      name: client.user.username,
+                      iconURL: client.user.avatarURL()
+                    })
+                    .addFields(
+                      {
+                        name: "概要",
+                        value: "ここはヘルプコマンドの説明です。\n" +
+                        "このbotについて知りたい場合は`voice!help`をご利用ください。\n" +
+                        "例: voice!help lplist"
+                      }
+                    )
+                ]
+              });
               break;
             }
           }
