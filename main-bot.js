@@ -37,7 +37,7 @@ const client = new Client({
 const botStatusSet = async () => {
   client.user.setPresence({
     activities: [{
-      name: Object.keys(clientdata.ytdt).length + "曲キャッシュ済みっ"
+      name: prefix + "help で始めます"
     }],
     status: "online"
   });
@@ -336,7 +336,7 @@ client.on(Events.MessageCreate, async message => {
           message.reply(await videoembed("その番号にはこの曲が入っています！", data));
         } else {
           const data = jsonRebuild(plist[channeldata.playing]);
-          message.reply(await videoembed((channeldata.playing + 1) + "番の曲を再生しています！", data));
+          message.reply(await videoembed((channeldata.playing + 1) + "番の曲を指定しています！", data));
         };
         break;
       }
@@ -432,6 +432,96 @@ client.on(Events.MessageCreate, async message => {
               .addFields(data[page - 1])
           ]
         });
+        break;
+      }
+      case "help": {
+        const repositoryLink = "https://github.com/azkazunami36/ibuki-bot1";
+        if (!subcontent) message.reply({
+          embeds: [
+            new EmbedBuilder()
+              .setTitle("ヘルプ！")
+              .setDescription("使い方を紹介します！")
+              .setAuthor({
+                name: client.user.username,
+                iconURL: client.user.avatarURL()
+              })
+              .addFields({
+                name: "コマンド一覧",
+                value: "" +
+                  "`" + prefix + "add [url]` VCキューに曲を追加します。\n" +
+                  "`" + prefix + "play` キュー内の曲を再生します。\n" +
+                  "`" + prefix + "stop` 曲の再生を停止します。\n" +
+                  "`" + prefix + "skip` 次の曲へすぐに切り替えます。\n" +
+                  "`" + prefix + "volume [num]` 音量を調節します。\n" +
+                  "`" + prefix + "repeat [0, 1, 2]` リピートパターンを切り替えます。\n" +
+                  "`" + prefix + "remove [num]` 指定した曲を削除します。\n" +
+                  "`" + prefix + "list [num]` 指定した曲の詳細が確認できます。\n" +
+                  "`" + prefix + "splist [name]` キュー内の曲を保存します。\n" +
+                  "`" + prefix + "lplist [num]` 保存したリストをキューに復元します。\n" +
+                  "`" + prefix + "plist [page]` 保存したリストを一覧で表示します。\n" +
+                  "`" + prefix + "pubplist [page]` パブプレを一覧で表示します。\n" +
+                  "`" + prefix + "publplist [num]` パブプレからキューに復元します。\n" +
+                  "`" + prefix + "help [command]` コマンドの詳細ヘルプを表示します。\n" +
+                  ""
+              })
+              .addFields({
+                name: "概要",
+                value: "このbotはYouTubeから曲を入手する音楽botです。\n" +
+                  "キューや再生リスト、パプリック・プレイリスト(略:パブプレ)機能を利用できる、\n" +
+                  "多機能音楽botです。\n" +
+                  "もしもバグが発生してしまった場合、GitHubから\n" +
+                  "[ibuki-bot2](" + repositoryLink + ")にアクセスし、\n" +
+                  "Issuesにエラー内容を書き込んでいただけると、ありがたいです。\n" +
+                  "GitHubが分からない場合は、あんこかずなみ36#5008にDMでお知らせください！"
+              })
+          ]
+        })
+        else {
+          switch (subcontent) {
+            case "add": {
+              break;
+            }
+            case "play": {
+              break;
+            }
+            case "stop": {
+              break;
+            }
+            case "skip": {
+              break;
+            }
+            case "volume": {
+              break;
+            }
+            case "repeat": {
+              break;
+            }
+            case "remove": {
+              break;
+            }
+            case "list": {
+              break;
+            }
+            case "splist": {
+              break;
+            }
+            case "lplist": {
+              break;
+            }
+            case "plist": {
+              break;
+            }
+            case "publist": {
+              break;
+            }
+            case "publplist": {
+              break;
+            }
+            case "help": {
+              break;
+            }
+          }
+        }
         break;
       }
     };
