@@ -1,6 +1,7 @@
 const { Client, GatewayIntentBits, Partials, Events, EmbedBuilder } = require("discord.js");
 const { entersState, createAudioPlayer, createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require("@discordjs/voice");
 const ytdl = require("ytdl-core");
+const ytpl = require("ytpl")
 const fs = require("fs");
 const readline = require("readline");
 require("dotenv").config();
@@ -48,18 +49,42 @@ const botStatusSet = async () => {
  * @param {{user: string, url: string}} data 
  * @returns 
  */
-const videoembed = async (content, data) => {
+const videoembed = async (content, data, list) => {
   const outdata = {};
   outdata.content = content;
   if (data) {
-    const user = (await client.users.fetch(data.user));
-    const thumbnails = clientdata.ytdt[data.url].thumbnails;
+    const yt = clientdata.ytdt[data.url]
+    const thumbnails = yt.thumbnails;
+    const authorth = yt.author.thumbnails;
     const embed = new EmbedBuilder()
-      .setTitle("**" + clientdata.ytdt[data.url].title + "**")
-      .setDescription("再生時間: " + (await timeString(clientdata.ytdt[data.url].lengthSeconds)))
-      .setAuthor({ name: user.username, iconURL: user.avatarURL() })
+      .setTitle("**" + yt.title + "**")
+      .setDescription("**下にキューの一覧を表示します。**")
+      .setAuthor({ name: yt.author.name, iconURL: authorth[authorth.length - 1].url })
       .setURL("https://youtu.be/" + data.url)
       .setThumbnail(thumbnails[thumbnails.length - 1].url);
+    if (list) {
+      const guilddata = clientdata.glist[list.guildid];
+      const channeldata = guilddata.chlist[list.channelid];
+      const plist = channeldata.plist;
+      let data = [[]];
+      let page = list.page;
+      for (let i = 0; i != plist.length; i++) {
+        if (data[data.length - 1].length > 4) data.push([]);
+        let bold = "";
+        if (i == channeldata.playing) {
+          console.log("設置時75行目のログ: " + bold);
+          bold = "**";
+          page = data.length - 1;
+        };
+        data[data.length - 1].push({
+          name: bold + (i + 1) + ": " + clientdata.ytdt[plist[i].url].title + bold,
+          value: "再生時間: " + await timeString(clientdata.ytdt[plist[i].url].lengthSeconds)
+        });
+      };
+      console.log("設置時83行目のログ: " + list.page)
+      if (page === true) list.page = data.length - 1;
+      embed.addFields(data[page]);
+    }
     outdata.embeds = [embed];
   };
   return outdata;
@@ -231,7 +256,7 @@ client.on(Events.MessageCreate, async message => {
               download.pipe(fs.createWriteStream("ytaudio/" + videoid + ".mp3"));
             });
         };
-        message.reply(await videoembed("再生リストに追加しました！", data));
+        message.reply(await videoembed("再生リストに追加しました！", data, { guildid, guildid, channelid: channelid, page: true }));
         break;
       }
       case "play": {
@@ -255,12 +280,13 @@ client.on(Events.MessageCreate, async message => {
         server.connection.on("error", e => {
           console.log("予想外の通信エラーが発生しました。", e,
             "\nこのエラーが何か具体的に記されている場合、エラーをGiuHubのIssuesにお送りください。");
-          musicstop();
+          musicstop(guildid);
         });
         ytplay(guildid, channelid);
         message.reply(
           await videoembed("再生を始めます！: " + (channeldata.playing + 1) + "曲目",
-            channeldata.plist[channeldata.playing]
+            plist[channeldata.playing],
+            { guildid, guildid, channelid: channelid, page: 0 }
           ));
         break;
       }
@@ -275,10 +301,12 @@ client.on(Events.MessageCreate, async message => {
         if (!plist[0]) return message.reply({
           content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ"
         });
+        channeldata.playing++;
         ytplay(guildid, channelid);
         message.reply(
-          await videoembed("次の曲の再生を始めます！: " + channeldata.playing + "曲目",
-            channeldata.plist[channeldata.playing])
+          await videoembed("次の曲の再生を始めます！: " + (channeldata.playing + 1) + "曲目",
+            plist[channeldata.playing],
+          { guildid: guildid, channelid: channelid, page: 0 })
         );
         break;
       }
@@ -325,34 +353,24 @@ client.on(Events.MessageCreate, async message => {
         } else if (!number) {
           let data = jsonRebuild(plist[channeldata.playing]);
           plist.splice((channeldata.playing), 1);
-          message.reply(await videoembed("削除しました～", data));
+          message.reply(await videoembed("削除しました～", data, { guildid, guildid, channelid: channelid, page: 0 }));
         } else if (number != 0) {
           let data = jsonRebuild(plist[number - 1]);
           plist.splice((number - 1), 1);
-          message.reply(await videoembed("削除しました～", data));
+          message.reply(await videoembed("削除しました～", data, { guildid, guildid, channelid: channelid, page: 0 }));
         };
         break;
       }
       case "list": {
         if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
         const page = Number(subcontent) || 1;
-        let data = [[]];
-        const { embeds } = await videoembed((channeldata.playing + 1) + "番の曲を指定しています！", jsonRebuild(plist[channeldata.playing]));
-        for (let i = 0; i != plist.length; i++) {
-          if (data[data.length - 1].length > 4) data.push([]);
-          data[data.length - 1].push({ name: (i + 1) + ": " + clientdata.ytdt[plist[i].url].title, value: "再生時間: " + await timeString(clientdata.ytdt[plist[i].url].lengthSeconds) });
-        };
-        if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
-        message.reply({
-          content: "キュー内一覧です。" + page + "/" + data.length,
-          embeds: [
-            new EmbedBuilder()
-              .setDescription("キュー内を一覧で表示しています。")
-              .setAuthor({ name: "一覧" + "[" + page + "/" + data.length + "]", iconURL: client.user.avatarURL() })
-              .addFields(data[page - 1]),
-              embeds[0]
-          ]
-        });
+        const data = { page: 1, in: 0 };
+        for (let i = 0; i != plist.length; i++) { if (data.in - 1 > 4) { data.page++; data.in = 0 }; data.in++; };
+        if (page > data.page || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        message.reply(await videoembed("再生中またはフォーカス中の曲とキューを表示します！",
+          plist[channeldata.playing],
+          { guildid, guildid, channelid: channelid, page: (page - 1) }
+        ));
         break;
       }
       case "splist": {
@@ -386,7 +404,7 @@ client.on(Events.MessageCreate, async message => {
         let data = [[]];
         for (let i = 0; i != mpl.length; i++) {
           if (data[data.length - 1].length > 4) data.push([]);
-          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。" });
+          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。`voice!lplist " + mpl[i] + "`" });
         };
         if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         message.reply({
@@ -435,7 +453,7 @@ client.on(Events.MessageCreate, async message => {
         let data = [[]];
         for (let i = 0; i != mpl.length; i++) {
           if (data[data.length - 1].length > 4) data.push([]);
-          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。" });
+          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。`voice!publplist " + mpl[i] + "`" });
         };
         if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         message.reply({
@@ -611,7 +629,7 @@ client.on(Events.MessageCreate, async message => {
                         name: "概要",
                         value: "このbotでは音量を変更することが可能です。\n" +
                           "推奨値はながら操作などの低音量で1～5%、\n" +
-                          "通常通りの音量で楽しみたい場合は、50%がおすすめです。" +
+                          "通常通りの音量で楽しみたい場合は、50%がおすすめです。\n" +
                           "例: `voice!volume 2.5` (小数点以下の指定も可能です。)"
                       }
                     )
@@ -830,8 +848,8 @@ client.on(Events.MessageCreate, async message => {
                       {
                         name: "概要",
                         value: "ここはヘルプコマンドの説明です。\n" +
-                        "このbotについて知りたい場合は`voice!help`をご利用ください。\n" +
-                        "例: voice!help lplist"
+                          "このbotについて知りたい場合は`voice!help`をご利用ください。\n" +
+                          "例: voice!help lplist"
                       }
                     )
                 ]
@@ -841,6 +859,28 @@ client.on(Events.MessageCreate, async message => {
           }
         }
         break;
+      }
+      case "mlist": {
+        const ytdt = clientdata.ytdt;
+        const mpl = Object.keys(ytdt);
+        if (!mpl[0]) return message.reply({ content: "音楽が入っていません...`" + prefix + "add [url]`で追加してくださいっ" });
+        const page = Number(subcontent) || 1;
+        let data = [[]];
+        for (let i = 0; i != mpl.length; i++) {
+          const yt = clientdata.ytdt[mpl[i]];
+          if (data[data.length - 1].length > 4) data.push([]);
+          data[data.length - 1].push({ name: (i + 1) + ": " + yt.title, value: "再生時間: " + await timeString(yt.lengthSeconds) + " `voice!add " + mpl[i] + "`" });
+        };
+        if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
+        message.reply({
+          content: "bot内の曲一覧です。" + page + "/" + data.length,
+          embeds: [
+            new EmbedBuilder()
+              .setDescription("botがキャッシュした曲を一覧として表示しています。")
+              .setAuthor({ name: "一覧" + "[" + page + "/" + data.length + "]", iconURL: message.author.avatarURL() })
+              .addFields(data[page - 1])
+          ]
+        });
       }
     };
     savejson(clientdata, "music_botv2");
@@ -854,8 +894,8 @@ const ytplay = async (guildid, voiceid) => {
   server.playing = voiceid;
   while (server.playing) {
     if ((plist.length - 1) < channeldata.playing) {
-      console.log("再生リストの指定番号がリスト数を超過していたため、最後の曲を指定しました。元番号: " + channeldata.playing);
-      channeldata.playing = plist.length - 1;
+      console.log("再生リストの指定番号がリスト数を超過していたため、最初の曲を指定しました。元番号: " + channeldata.playing);
+      channeldata.playing = 0;
     };
     savejson(clientdata, "music_botv2");
     if (clientdata.cacheis) {
