@@ -335,29 +335,22 @@ client.on(Events.MessageCreate, async message => {
       }
       case "list": {
         if (!plist[0]) return message.reply({ content: "再生リストが空です...`" + prefix + "add [URL]`を使用して追加してくださいっ" });
-        const number = Number(subcontent);
-        if (number > plist.length || number < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
-        if (number) {
-          const data = jsonRebuild(plist[number - 1]);
-          message.reply(await videoembed("その番号にはこの曲が入っています！", data));
-        } else {
-          const data = jsonRebuild(plist[channeldata.playing]);
-          message.reply(await videoembed((channeldata.playing + 1) + "番の曲を指定しています！", data));
-        };
         const page = Number(subcontent) || 1;
         let data = [[]];
-        for (let i = 0; i != mpl.length; i++) {
+        const { embeds } = await videoembed((channeldata.playing + 1) + "番の曲を指定しています！", jsonRebuild(plist[channeldata.playing]));
+        for (let i = 0; i != plist.length; i++) {
           if (data[data.length - 1].length > 4) data.push([]);
-          data[data.length - 1].push({ name: (i + 1) + ": " + mpl[i], value: myplist[mpl[i]].length + "曲入っています。" });
+          data[data.length - 1].push({ name: (i + 1) + ": " + clientdata.ytdt[plist[i].url].title, value: "再生時間: " + await timeString(clientdata.ytdt[plist[i].url].lengthSeconds) });
         };
         if (page > data.length || page < 1) return message.reply("受け取った値がよろしくなかったようです...もう一度やり増しましょう...！");
         message.reply({
-          content: "プレイリスト一覧です。" + page + "/" + data.length,
+          content: "キュー内一覧です。" + page + "/" + data.length,
           embeds: [
             new EmbedBuilder()
-              .setDescription("パプリック・プレイリストを一覧で表示しています。")
+              .setDescription("キュー内を一覧で表示しています。")
               .setAuthor({ name: "一覧" + "[" + page + "/" + data.length + "]", iconURL: client.user.avatarURL() })
-              .addFields(data[page - 1])
+              .addFields(data[page - 1]),
+              embeds[0]
           ]
         });
         break;
