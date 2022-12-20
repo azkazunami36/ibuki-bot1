@@ -72,7 +72,6 @@ const videoembed = async (content, data, list) => {
         if (data[data.length - 1].length > 4) data.push([]);
         let bold = "";
         if (i == channeldata.playing) {
-          console.log("設置時75行目のログ: " + bold);
           bold = "**";
           page = data.length - 1;
         };
@@ -81,10 +80,9 @@ const videoembed = async (content, data, list) => {
           value: "再生時間: " + await timeString(clientdata.ytdt[plist[i].url].lengthSeconds)
         });
       };
-      console.log("設置時83行目のログ: " + list.page)
       if (page === true) list.page = data.length - 1;
-      embed.addFields(data[page]);
-    }
+      if (data[0][0].name) embed.addFields(data[page]);
+    };
     outdata.embeds = [embed];
   };
   return outdata;
