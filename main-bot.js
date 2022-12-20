@@ -306,7 +306,7 @@ client.on(Events.MessageCreate, async message => {
         message.reply(
           await videoembed("次の曲の再生を始めます！: " + (channeldata.playing + 1) + "曲目",
             plist[channeldata.playing],
-          { guildid: guildid, channelid: channelid, page: 0 })
+            { guildid: guildid, channelid: channelid, page: 0 })
         );
         break;
       }
