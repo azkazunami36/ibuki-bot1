@@ -313,7 +313,7 @@ client.on(Events.MessageCreate, async message => {
         if (volume == NaN) return message.reply(await videoembed("`" + volume + "`が理解できませんでした..."));
         if (volume < 0) {
           volume = 0;
-        } else if (volume > 100) {
+        } else if (volume > 1.0e+9999) {
           volume = 100;
         };
         if (server.playing == channelid) server.resource.volume.volume = volume / 100;

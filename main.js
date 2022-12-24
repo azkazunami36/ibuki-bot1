@@ -19,6 +19,7 @@ const ytdl = require("ytdl-core")
 const ytpl = require("ytpl")
 const fs = require("fs")
 const readline = require("readline")
+const { data, errortype } = require("./index")
 require("dotenv").config()
 const client = new Client({
     partials: [
@@ -172,34 +173,10 @@ client.on(Events.MessageCreate, message => {
 })
 
 /**
- * @param {{
- * subcontent: string, 
- * serverid: string, 
- * channelid: string, 
- * userid: string, 
- * plist: [], 
- * number: Number
- * }} data
- * @param {{
- * addurl: boolean, 
- * notsplist: boolean, 
- * notlplist: boolean, 
- * notpublplist: boolean, 
- * notpubsplist: boolean, 
- * ytdlurlorid: boolean, 
- * playinguser: boolean, 
- * playing: boolean,
- * plistempty: boolean,
- * noplaying: boolean,
- * nullnumber: boolean,
- * stringlengthis: boolean,
- * notplist: boolean,
- * zeroplist: boolean,
- * zeropubplist: boolean,
- * notadminispub: boolean,
- * notpubplist: boolean,
- * noytcontent: boolean
- * }} notype
+ * 
+ * @param {data} data 
+ * @param {errortype} notype 
+ * @returns 
  */
 const voiceerrorfunction = (data, notype) => {
     try {
