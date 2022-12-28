@@ -80,7 +80,8 @@ const videoembed = async (content, data, list) => {
           value: "再生時間: " + await timeString(clientdata.ytdt[plist[i].url].lengthSeconds)
         });
       };
-      if (page === true) list.page = data.length - 1;
+      console.log(data, page)
+      if (page === true) page = data.length - 1;
       if (data[0][0].name) embed.addFields(data[page]);
     };
     outdata.embeds = [embed];
@@ -171,7 +172,7 @@ jsonload().then(async data => {
 const temp = {};
 const prefix = "voice!";
 client.on(Events.ClientReady, async () => {
-  if (clientdata.cacheis == undefined) clientdata.cacheis = true;
+  clientdata.cacheis = false;
   if (!clientdata.glist) clientdata.glist = {};
   if (!clientdata.ytdt) clientdata.ytdt = {};
   if (!clientdata.pubplist) clientdata.pubplist = {};
@@ -275,7 +276,7 @@ client.on(Events.MessageCreate, async message => {
           adapterCreator: voiceAdapterCreator,
           selfDeaf: true
         });
-        server.connection.on("error", e => {
+        server.connection.on("error", async e => {
           console.log("予想外の通信エラーが発生しました。", e,
             "\nこのエラーが何か具体的に記されている場合、エラーをGiuHubのIssuesにお送りください。");
           musicstop(guildid);
@@ -947,7 +948,8 @@ const ytplay = async (guildid, voiceid) => {
     };
   };
 };
-const musicstop = guildid => {
+const musicstop = async guildid => {
+  console.log("再生停止関数が動きました。")
   const server = temp[guildid];
   try { if (!clientdata.cacheis) server.ytstream.destroy(); }
   catch (e) { console.log("ytstreamの切断に失敗。", e); };
