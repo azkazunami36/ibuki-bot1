@@ -20,7 +20,9 @@ dotenv.config();
 const {
   getVoiceConnection,
   joinVoiceChannel,
-  VoiceConnectionStatus
+  VoiceConnectionStatus,
+  createAudioPlayer,
+  createAudioResource
 } = discordjsvoice;
 const client = new Client({
   partials: [
@@ -312,6 +314,17 @@ class discordTools {
   };
 }
 
+const publicTemp: {
+  voice?: {
+    [guildId: string]: {
+      [channelId: string]: {
+        resource?: discordjsvoice.AudioResource<null>;
+        player?: discordjsvoice.AudioPlayer;
+      };
+    };
+  };
+} = {};
+
 client.on(Events.ClientReady, client => {
   const user = client.user;
   console.log(user.username + "#" + user.discriminator + "さんようこそ。");
@@ -353,15 +366,13 @@ client.on(Events.MessageCreate, async message => {
        * @param set 初期化時に使用するデータを入力します。
        * @returns 参照渡しがそのまま受け継がれたデータを出力します。
        */
-      const def = <T>(keyName: string, datas: { [key: string]: T | undefined }, set: T) => {
-        const key = keyName;
-        const objects = datas;
-        let object = objects[key];
-        if (object === undefined) {
-          object = set;
-          objects[key] = object;
+      const def = <T>(keyName: string, datas: Record<string, T | undefined>, set: T): T => {
+        let value = datas[keyName];
+        if (!value) {
+          value = set;
+          datas[keyName] = value;
         }
-        return object;
+        return value;
       };
       const guildData = def(temp.guildId, dataMgr.data.guilds, {});
       if (guildData.channels === undefined) guildData.channels = {};
@@ -446,6 +457,10 @@ client.on(Events.MessageCreate, async message => {
             /**
              * まだ肝心の処理を書いていません。ここに書きます。
              */
+            if (!publicTemp.voice) publicTemp.voice = {};
+            const status = def(temp.channelId, def(temp.guildId, publicTemp.voice, {}), {});
+            status.resource = createAudioResource("");
+            status.player = createAudioPlayer();
             await message.channel.send(
               await new discordTools().msgVList("再生を始めます！", {
                 videoId: channelData.playList[channelData.playing],
@@ -753,24 +768,51 @@ client.on(Events.MessageCreate, async message => {
                   return {
                     name: temp.subCommand + "コマンドのヘルプ",
                     description: commands[temp.subCommand].jaName + "コマンドの使い方を紹介します。",
-                    fields: {
+                    fields: [{
                       name: "概要",
                       value: ""
-                    }
+                    }]
                   };
                 } else return null;
               }
               return {
                 name: "ヘルプ！",
                 description: "使い方を紹介します！",
-                fields: {
+                fields: [{
                   name: "コマンド一覧",
                   value: (() => {
-                    return "";
+                    let str = "";
+                    for (let i = 0; i !== Object.keys(commands).length; i++)
+                      str += "'" + dataMgr.data.prefix + "!" + commands[Object.keys(commands)[i]].commandLine + "' " + "";
+                    return str;
                   })()
-                }
+                }, {
+                  name: "概要",
+                  value: "このbotはYouTubeから曲を入手する音楽botです。\n" +
+                    "キューや再生リスト、パプリック・プレイリスト(略:パブプレ)機能を\n" +
+                    "利用できる、多機能音楽botです。\n" +
+                    "もしもバグが発生してしまった場合、\n" +
+                    "GitHubから[ibuki-bot2](https://github.com/azkazunami36/various-programs/)にアクセスし、\n" +
+                    "Issuesにエラー内容を書き込んでいただけると、ありがたいです。\n" +
+                    "GitHubが分からない場合は、\n" +
+                    "あんこかずなみ36#5008にDMでお知らせください！\n" +
+                    "botの詳細の使い方は、`" + dataMgr.data.prefix + "!help add`等を使用するか、\n" +
+                    "ヘルプページにアクセスしてください！"
+                }]
               };
-            })
+            })();
+            if (config) {
+              await message.channel.send({
+                embeds: [
+                  new EmbedBuilder()
+                    .setTitle(config.name)
+                    .setDescription(config.description)
+                    .addFields(...config.fields)
+                ]
+              });
+            } else {
+              await message.channel.send("そのようなコマンドのヘルプは表示できません...`" + dataMgr.data.prefix + "!help" + "`で一覧を確認しましょう。");
+            }
           }
         }
       };
